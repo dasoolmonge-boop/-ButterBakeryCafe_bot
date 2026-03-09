@@ -7,7 +7,7 @@ const url = require('url');
 
 const PORT = process.env.PORT || 3000;
 const ADMIN_ID = 1066867845; // ID главного администратора в Telegram
-const BOT_TOKEN = "8739833609:AAHVM4_5VwvirZaI1fPe53roNzwsyWy--1Y"; // Токен для уведомлений
+const BOT_TOKEN = "8739833609:AAHVM4_5VwvirZaI1fPe53roNzwsyWy--1Y"; // Новый токен
 
 // MIME типы для статических файлов
 const mimeTypes = {
@@ -51,7 +51,7 @@ function initDB() {
                     price: 2500,
                     weight: 1.5,
                     description: "Классический медовый торт с нежным кремом",
-                    photo: "/uploads/medovik.jpg",
+                    photo: "https://images.unsplash.com/photo-1578985545062-69928b1d9587?w=400",
                     available: true
                 },
                 {
@@ -61,7 +61,7 @@ function initDB() {
                     price: 2800,
                     weight: 1.8,
                     description: "Хрустящие коржи с заварным кремом",
-                    photo: "/uploads/napoleon.jpg",
+                    photo: "https://images.unsplash.com/photo-1464305795233-6e7c1d10f1d8?w=400",
                     available: true
                 },
                 {
@@ -71,7 +71,57 @@ function initDB() {
                     price: 350,
                     weight: 0.15,
                     description: "Свежий круассан с миндальной начинкой",
-                    photo: "/uploads/croissant-almond.jpg",
+                    photo: "https://images.unsplash.com/photo-1555507036-ab1f4038808a?w=400",
+                    available: true
+                },
+                {
+                    id: 4,
+                    name: "Капкейк ванильный",
+                    categoryId: 3,
+                    price: 180,
+                    weight: 0.1,
+                    description: "Ванильный бисквит с кремом",
+                    photo: "https://images.unsplash.com/photo-1627308595171-d1b5d671550b?w=400",
+                    available: true
+                },
+                {
+                    id: 5,
+                    name: "Пирожное картошка",
+                    categoryId: 4,
+                    price: 120,
+                    weight: 0.08,
+                    description: "Классическое пирожное из детства",
+                    photo: "https://images.unsplash.com/photo-1606313564200-e75d5e30476c?w=400",
+                    available: true
+                },
+                {
+                    id: 6,
+                    name: "Эклер",
+                    categoryId: 4,
+                    price: 150,
+                    weight: 0.1,
+                    description: "Заварное пирожное с ванильным кремом",
+                    photo: "https://images.unsplash.com/photo-1603532648955-039310d9ed75?w=400",
+                    available: true
+                },
+                {
+                    id: 7,
+                    name: "Круассан с шоколадом",
+                    categoryId: 2,
+                    price: 380,
+                    weight: 0.16,
+                    description: "Свежий круассан с шоколадной начинкой",
+                    photo: "https://images.unsplash.com/photo-1540910419892-4a36d2c3266c?w=400",
+                    available: true
+                },
+                {
+                    id: 8,
+                    name: "Чизкейк",
+                    categoryId: 1,
+                    price: 3200,
+                    weight: 1.8,
+                    description: "Нежный чизкейк с ягодным соусом",
+                    photo: "https://images.unsplash.com/photo-1533134242443-d4fd215305ad?w=400",
                     available: true
                 }
             ],
@@ -87,7 +137,7 @@ function initDB() {
                 }
             ],
             orders: [],
-            nextCakeId: 4,
+            nextCakeId: 9,
             nextOrderId: 1,
             nextCategoryId: 5,
             nextUserId: 2
@@ -103,15 +153,15 @@ function readDB() {
         return JSON.parse(data);
     } catch (error) {
         console.error('Ошибка чтения БД:', error);
-        return {
-            categories: [],
-            cakes: [],
+        return { 
+            categories: [], 
+            cakes: [], 
             users: [],
-            orders: [],
-            nextCakeId: 1,
+            orders: [], 
+            nextCakeId: 1, 
             nextOrderId: 1,
             nextCategoryId: 1,
-            nextUserId: 1
+            nextUserId: 1 
         };
     }
 }
@@ -229,7 +279,7 @@ const server = http.createServer((req, res) => {
             try {
                 const { name, description } = JSON.parse(body);
                 const db = readDB();
-
+                
                 if (!db.categories) db.categories = [];
                 if (!db.nextCategoryId) db.nextCategoryId = 1;
 
@@ -240,7 +290,7 @@ const server = http.createServer((req, res) => {
                 };
 
                 db.categories.push(newCategory);
-
+                
                 if (writeDB(db)) {
                     res.writeHead(201, { 'Content-Type': 'application/json' });
                     res.end(JSON.stringify(newCategory));
@@ -321,14 +371,14 @@ const server = http.createServer((req, res) => {
     if (pathname === '/api/cakes' && req.method === 'GET') {
         const db = readDB();
         const categoryId = parsedUrl.query.categoryId;
-
+        
         let availableCakes = db.cakes.filter(c => c.available);
-
+        
         // Фильтруем по категории, если указана
         if (categoryId) {
             availableCakes = availableCakes.filter(c => c.categoryId === parseInt(categoryId));
         }
-
+        
         res.writeHead(200, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify(availableCakes));
         return;
@@ -444,15 +494,15 @@ const server = http.createServer((req, res) => {
             try {
                 const { telegramId, username, firstName } = JSON.parse(body);
                 const db = readDB();
-
+                
                 if (!db.users) db.users = [];
-
+                
                 let user = db.users.find(u => u.telegramId === telegramId);
-
+                
                 // Если пользователь не найден, создаем как customer
                 if (!user) {
                     if (!db.nextUserId) db.nextUserId = 1;
-
+                    
                     user = {
                         id: db.nextUserId++,
                         telegramId,
@@ -462,11 +512,11 @@ const server = http.createServer((req, res) => {
                         phone: '',
                         createdAt: new Date().toISOString()
                     };
-
+                    
                     db.users.push(user);
                     writeDB(db);
                 }
-
+                
                 res.writeHead(200, { 'Content-Type': 'application/json' });
                 res.end(JSON.stringify(user));
             } catch (error) {
@@ -486,13 +536,13 @@ const server = http.createServer((req, res) => {
             try {
                 const { userId } = JSON.parse(body);
                 const db = readDB();
-
+                
                 // Проверяем по базе данных или по фиксированному ADMIN_ID
                 const user = db.users?.find(u => u.telegramId === userId);
                 const isAdminUser = userId === ADMIN_ID || user?.role === 'admin';
-
+                
                 res.writeHead(200, { 'Content-Type': 'application/json' });
-                res.end(JSON.stringify({ isAdmin: isAdminUser }));
+                res.end(JSON.stringify({ isAdmin: isAdminUser, user: user }));
             } catch (error) {
                 res.writeHead(400);
                 res.end(JSON.stringify({ error: 'Invalid JSON' }));
@@ -530,7 +580,7 @@ const server = http.createServer((req, res) => {
             try {
                 const userData = JSON.parse(body);
                 const db = readDB();
-
+                
                 if (!db.users) db.users = [];
                 if (!db.nextUserId) db.nextUserId = 1;
 
@@ -550,7 +600,7 @@ const server = http.createServer((req, res) => {
                 };
 
                 db.users.push(newUser);
-
+                
                 if (writeDB(db)) {
                     res.writeHead(201, { 'Content-Type': 'application/json' });
                     res.end(JSON.stringify(newUser));
@@ -602,6 +652,17 @@ const server = http.createServer((req, res) => {
     if (pathname.startsWith('/api/admin/users/') && req.method === 'DELETE') {
         const userId = parseInt(pathname.split('/').pop());
         const db = readDB();
+
+        // Не даем удалить последнего админа
+        const userToDelete = db.users.find(u => u.id === userId);
+        if (userToDelete?.role === 'admin') {
+            const adminCount = db.users.filter(u => u.role === 'admin').length;
+            if (adminCount <= 1) {
+                res.writeHead(400);
+                res.end(JSON.stringify({ error: 'Нельзя удалить последнего администратора' }));
+                return;
+            }
+        }
 
         db.users = db.users.filter(u => u.id !== userId);
 
@@ -709,10 +770,10 @@ const server = http.createServer((req, res) => {
 
                 if (writeDB(db)) {
                     const order = db.orders[orderIndex];
-
+                    
                     // Отправляем уведомление курьеру
                     sendNotificationToCourier(order, courierId, db);
-
+                    
                     // Отправляем уведомление клиенту
                     sendNotificationToCustomer(order);
 
@@ -848,13 +909,11 @@ function sendOrderToAdmin(orderData) {
     const { name, phone, address, deliveryDate, deliveryTime, wish, cart, totalPrice, userId, username } = orderData;
 
     const cakesList = cart.map(item =>
-        `🍰 ${item.name} - ${item.price} ₽`
+        `🍰 ${item.name} - ${item.price} ₽ (${item.quantity} шт.)`
     ).join('\n');
 
-    // Определяем домен для ссылки
-    const protocol = 'https';
-    const host = 'butterbakerycafe.bothost.ru'; // ЗАМЕНИТЕ НА ВАШ РЕАЛЬНЫЙ ДОМЕН
-    const adminLink = `${protocol}://${host}/admin`;
+    // Используем новый домен
+    const adminLink = `https://butterbakerycafe.bothost.ru/admin`;
 
     const message =
         `📩 **НОВЫЙ ЗАКАЗ ИЗ MINI APP**\n\n` +
@@ -882,7 +941,7 @@ function sendNotificationToCourier(order, courierId, db) {
     const { name, phone, address, deliveryDate, deliveryTime, wish, cart, totalPrice, id } = order;
 
     const cakesList = cart.map(item =>
-        `🍰 ${item.name} - ${item.price} ₽`
+        `🍰 ${item.name} - ${item.price} ₽ (${item.quantity} шт.)`
     ).join('\n');
 
     const message =
@@ -922,5 +981,4 @@ server.listen(PORT, '0.0.0.0', () => {
     console.log(`👑 Админ-панель: http://localhost:${PORT}/admin`);
     console.log(`💾 Данные сохраняются в: ${DB_FILE}`);
     console.log(`📸 Загрузки сохраняются в: ${UPLOAD_DIR}`);
-
 });
