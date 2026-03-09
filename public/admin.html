@@ -1,0 +1,761 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Butter Bakery Cafe - Админ-панель</title>
+    <link rel="stylesheet" href="/style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+</head>
+<body>
+    <div class="container">
+        <!-- Шапка -->
+        <header class="header">
+            <div class="logo">🥐 Butter Bakery Cafe - Админ-панель</div>
+            <div class="user-info" id="userInfo">
+                <span id="userName">Загрузка...</span>
+                <span id="userRole" class="role-badge role-admin">Админ</span>
+            </div>
+        </header>
+
+        <!-- Вкладки -->
+        <div class="admin-tabs">
+            <button class="admin-tab active" data-tab="orders">📋 Заказы</button>
+            <button class="admin-tab" data-tab="cakes">🍰 Товары</button>
+            <button class="admin-tab" data-tab="categories">📁 Категории</button>
+            <button class="admin-tab" data-tab="users">👥 Пользователи</button>
+        </div>
+
+        <!-- Контент вкладок -->
+        <div id="tabContent"></div>
+    </div>
+
+    <!-- Модальное окно для товаров -->
+    <div id="cakeModal" class="modal" style="display: none;">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 id="cakeModalTitle">Добавить товар</h2>
+                <button class="modal-close" onclick="closeCakeModal()">×</button>
+            </div>
+            <form id="cakeForm" onsubmit="saveCake(event)">
+                <input type="hidden" id="cakeId">
+
+                <div class="form-group">
+                    <label class="form-label">Название</label>
+                    <input type="text" class="form-input" id="cakeName" required>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">Категория</label>
+                    <select class="form-select" id="cakeCategory" required>
+                        <option value="">Выберите категорию</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">Цена (₽)</label>
+                    <input type="number" class="form-input" id="cakePrice" required>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">Вес (кг)</label>
+                    <input type="number" step="0.1" class="form-input" id="cakeWeight" required>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">Описание</label>
+                    <textarea class="form-textarea" id="cakeDescription" required></textarea>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">Фото URL</label>
+                    <input type="url" class="form-input" id="cakePhoto" placeholder="https://... или /uploads/...">
+                    <small>Оставьте пустым для загрузки файла</small>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">Или загрузите файл</label>
+                    <input type="file" class="form-input" id="cakePhotoFile" accept="image/*">
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">
+                        <input type="checkbox" id="cakeAvailable" checked> Доступен для заказа
+                    </label>
+                </div>
+
+                <button type="submit" class="btn btn-primary btn-block">Сохранить</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Модальное окно для категорий -->
+    <div id="categoryModal" class="modal" style="display: none;">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 id="categoryModalTitle">Добавить категорию</h2>
+                <button class="modal-close" onclick="closeCategoryModal()">×</button>
+            </div>
+            <form id="categoryForm" onsubmit="saveCategory(event)">
+                <input type="hidden" id="categoryId">
+
+                <div class="form-group">
+                    <label class="form-label">Название категории</label>
+                    <input type="text" class="form-input" id="categoryName" required>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">Описание</label>
+                    <textarea class="form-textarea" id="categoryDescription"></textarea>
+                </div>
+
+                <button type="submit" class="btn btn-primary btn-block">Сохранить</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Модальное окно для пользователей -->
+    <div id="userModal" class="modal" style="display: none;">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 id="userModalTitle">Добавить пользователя</h2>
+                <button class="modal-close" onclick="closeUserModal()">×</button>
+            </div>
+            <form id="userForm" onsubmit="saveUser(event)">
+                <input type="hidden" id="userId">
+
+                <div class="form-group">
+                    <label class="form-label">Telegram ID</label>
+                    <input type="number" class="form-input" id="userTelegramId" required>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">Имя</label>
+                    <input type="text" class="form-input" id="userFirstName" required>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">Username (без @)</label>
+                    <input type="text" class="form-input" id="userUsername">
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">Телефон</label>
+                    <input type="tel" class="form-input" id="userPhone">
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">Роль</label>
+                    <select class="form-select" id="userRole" required>
+                        <option value="customer">Клиент</option>
+                        <option value="courier">Курьер</option>
+                        <option value="admin">Администратор</option>
+                    </select>
+                </div>
+
+                <button type="submit" class="btn btn-primary btn-block">Сохранить</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Модальное окно для назначения курьера -->
+    <div id="assignCourierModal" class="modal" style="display: none;">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Назначить курьера</h2>
+                <button class="modal-close" onclick="closeAssignCourierModal()">×</button>
+            </div>
+            <div class="form-group">
+                <label class="form-label">Выберите курьера</label>
+                <select class="form-select" id="courierSelect" required>
+                    <option value="">Загрузка...</option>
+                </select>
+            </div>
+            <button class="btn btn-primary btn-block" onclick="assignCourier()">Назначить</button>
+        </div>
+    </div>
+
+    <script>
+        // Глобальные переменные
+        let tg = window.Telegram?.WebApp;
+        let user = null;
+        let currentTab = 'orders';
+        let currentOrderId = null;
+
+        // Инициализация
+        async function init() {
+            if (tg) {
+                tg.expand();
+                tg.ready();
+
+                const tgUser = tg.initDataUnsafe?.user;
+                if (tgUser) {
+                    user = await checkAdmin(tgUser);
+                    document.getElementById('userName').textContent = user?.firstName || 'Админ';
+                }
+            }
+
+            // Загружаем первую вкладку
+            loadTab('orders');
+
+            // Обработчики вкладок
+            document.querySelectorAll('.admin-tab').forEach(tab => {
+                tab.addEventListener('click', () => {
+                    document.querySelectorAll('.admin-tab').forEach(t => t.classList.remove('active'));
+                    tab.classList.add('active');
+                    loadTab(tab.dataset.tab);
+                });
+            });
+        }
+
+        // Проверка прав администратора
+        async function checkAdmin(tgUser) {
+            try {
+                const response = await fetch('/api/check-admin', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ userId: tgUser.id })
+                });
+
+                const data = await response.json();
+
+                if (!data.isAdmin) {
+                    alert('У вас нет прав доступа к админ-панели');
+                    if (tg) tg.close();
+                }
+
+                return data.user;
+            } catch (error) {
+                console.error('Ошибка проверки прав:', error);
+                return null;
+            }
+        }
+
+        // Загрузка вкладок
+        async function loadTab(tabName) {
+            currentTab = tabName;
+            const content = document.getElementById('tabContent');
+
+            switch(tabName) {
+                case 'orders':
+                    content.innerHTML = '<h2>Заказы</h2><div id="ordersList">Загрузка...</div>';
+                    await loadOrders();
+                    break;
+                case 'cakes':
+                    content.innerHTML = `
+                        <h2>Товары</h2>
+                        <button class="btn btn-primary" onclick="openCakeModal()">➕ Добавить товар</button>
+                        <div id="cakesList" style="margin-top: 20px;">Загрузка...</div>
+                    `;
+                    await loadCakes();
+                    break;
+                case 'categories':
+                    content.innerHTML = `
+                        <h2>Категории</h2>
+                        <button class="btn btn-primary" onclick="openCategoryModal()">➕ Добавить категорию</button>
+                        <div id="categoriesList" style="margin-top: 20px;">Загрузка...</div>
+                    `;
+                    await loadCategories();
+                    break;
+                case 'users':
+                    content.innerHTML = `
+                        <h2>Пользователи</h2>
+                        <button class="btn btn-primary" onclick="openUserModal()">➕ Добавить пользователя</button>
+                        <div id="usersList" style="margin-top: 20px;">Загрузка...</div>
+                    `;
+                    await loadUsers();
+                    break;
+            }
+        }
+
+        // ========== ЗАКАЗЫ ==========
+        async function loadOrders() {
+            try {
+                const response = await fetch('/api/admin/orders');
+                const orders = await response.json();
+
+                const ordersList = document.getElementById('ordersList');
+
+                if (orders.length === 0) {
+                    ordersList.innerHTML = '<p>Нет заказов</p>';
+                    return;
+                }
+
+                let html = '';
+                orders.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+
+                orders.forEach(order => {
+                    const statusClass = order.status === 'active' ? 'status-active' :
+                                       order.status === 'assigned_to_courier' ? 'status-assigned' :
+                                       order.status === 'delivered' ? 'status-delivered' : 'status-cancelled';
+
+                    const statusText = order.status === 'active' ? 'Активен' :
+                                      order.status === 'assigned_to_courier' ? 'Передан курьеру' :
+                                      order.status === 'delivered' ? 'Доставлен' : 'Отменен';
+
+                    html += `
+                        <div class="admin-card">
+                            <div>
+                                <h3>Заказ #${order.id}</h3>
+                                <p><strong>Клиент:</strong> ${order.name}</p>
+                                <p><strong>Телефон:</strong> ${order.phone}</p>
+                                <p><strong>Адрес:</strong> ${order.address}</p>
+                                <p><strong>Дата доставки:</strong> ${order.deliveryDate} ${order.deliveryTime}</p>
+                                <p><strong>Сумма:</strong> ${order.totalPrice} ₽</p>
+                                <p><span class="status-badge ${statusClass}">${statusText}</span></p>
+                            </div>
+                            <div class="admin-card-actions">
+                                ${order.status === 'active' ?
+                                    `<button class="btn" onclick="openAssignCourierModal(${order.id})">🚚 Назначить курьера</button>` : ''}
+                                ${order.status === 'assigned_to_courier' ?
+                                    `<button class="btn" onclick="markAsDelivered(${order.id})">✅ Отметить доставленным</button>` : ''}
+                                ${order.status !== 'cancelled' && order.status !== 'delivered' ?
+                                    `<button class="btn" onclick="cancelOrder(${order.id})">❌ Отменить</button>` : ''}
+                            </div>
+                        </div>
+                    `;
+                });
+
+                ordersList.innerHTML = html;
+            } catch (error) {
+                console.error('Ошибка загрузки заказов:', error);
+            }
+        }
+
+        // Назначение курьера
+        async function openAssignCourierModal(orderId) {
+            currentOrderId = orderId;
+
+            try {
+                const response = await fetch('/api/admin/couriers');
+                const couriers = await response.json();
+
+                const select = document.getElementById('courierSelect');
+                select.innerHTML = '<option value="">Выберите курьера</option>';
+
+                couriers.forEach(courier => {
+                    select.innerHTML += `<option value="${courier.id}">${courier.firstName} (${courier.username || 'нет username'})</option>`;
+                });
+
+                document.getElementById('assignCourierModal').style.display = 'flex';
+            } catch (error) {
+                console.error('Ошибка загрузки курьеров:', error);
+            }
+        }
+
+        async function assignCourier() {
+            const courierId = document.getElementById('courierSelect').value;
+            if (!courierId) {
+                alert('Выберите курьера');
+                return;
+            }
+
+            try {
+                const response = await fetch(`/api/admin/orders/${currentOrderId}/assign-courier`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ courierId: parseInt(courierId) })
+                });
+
+                if (response.ok) {
+                    showNotification('Курьер назначен, уведомления отправлены');
+                    closeAssignCourierModal();
+                    loadOrders();
+                }
+            } catch (error) {
+                console.error('Ошибка назначения курьера:', error);
+            }
+        }
+
+        function closeAssignCourierModal() {
+            document.getElementById('assignCourierModal').style.display = 'none';
+            currentOrderId = null;
+        }
+
+        // ========== ТОВАРЫ ==========
+        async function loadCakes() {
+            try {
+                const response = await fetch('/api/admin/cakes');
+                const cakes = await response.json();
+
+                const categoriesResponse = await fetch('/api/admin/categories');
+                const categories = await categoriesResponse.json();
+
+                const cakesList = document.getElementById('cakesList');
+
+                if (cakes.length === 0) {
+                    cakesList.innerHTML = '<p>Нет товаров</p>';
+                    return;
+                }
+
+                let html = '';
+                cakes.forEach(cake => {
+                    const category = categories.find(c => c.id === cake.categoryId);
+
+                    html += `
+                        <div class="admin-card">
+                            <div style="display: flex; gap: 15px; align-items: center;">
+                                <img src="${cake.photo || 'https://via.placeholder.com/50'}" style="width: 50px; height: 50px; border-radius: 15px; object-fit: cover;">
+                                <div>
+                                    <h3>${cake.name}</h3>
+                                    <p>${category?.name || 'Без категории'} • ${cake.price} ₽ • ${cake.weight} кг</p>
+                                    <p>${cake.description}</p>
+                                    <span class="status-badge ${cake.available ? 'status-active' : 'status-cancelled'}">
+                                        ${cake.available ? 'Доступен' : 'Недоступен'}
+                                    </span>
+                                </div>
+                            </div>
+                            <div class="admin-card-actions">
+                                <button class="btn" onclick="openCakeModal(${cake.id})">✏️</button>
+                                <button class="btn" onclick="deleteCake(${cake.id})">🗑️</button>
+                            </div>
+                        </div>
+                    `;
+                });
+
+                cakesList.innerHTML = html;
+            } catch (error) {
+                console.error('Ошибка загрузки товаров:', error);
+            }
+        }
+
+        async function openCakeModal(cakeId = null) {
+            // Загружаем категории для выпадающего списка
+            const response = await fetch('/api/admin/categories');
+            const categories = await response.json();
+
+            const select = document.getElementById('cakeCategory');
+            select.innerHTML = '<option value="">Выберите категорию</option>';
+            categories.forEach(cat => {
+                select.innerHTML += `<option value="${cat.id}">${cat.name}</option>`;
+            });
+
+            if (cakeId) {
+                document.getElementById('cakeModalTitle').textContent = 'Редактировать товар';
+
+                const cakeResponse = await fetch('/api/admin/cakes');
+                const cakes = await cakeResponse.json();
+                const cake = cakes.find(c => c.id === cakeId);
+
+                if (cake) {
+                    document.getElementById('cakeId').value = cake.id;
+                    document.getElementById('cakeName').value = cake.name;
+                    document.getElementById('cakeCategory').value = cake.categoryId;
+                    document.getElementById('cakePrice').value = cake.price;
+                    document.getElementById('cakeWeight').value = cake.weight;
+                    document.getElementById('cakeDescription').value = cake.description;
+                    document.getElementById('cakePhoto').value = cake.photo || '';
+                    document.getElementById('cakeAvailable').checked = cake.available;
+                }
+            } else {
+                document.getElementById('cakeModalTitle').textContent = 'Добавить товар';
+                document.getElementById('cakeForm').reset();
+                document.getElementById('cakeId').value = '';
+            }
+
+            document.getElementById('cakeModal').style.display = 'flex';
+        }
+
+        function closeCakeModal() {
+            document.getElementById('cakeModal').style.display = 'none';
+        }
+
+        async function saveCake(event) {
+            event.preventDefault();
+
+            const cakeData = {
+                name: document.getElementById('cakeName').value,
+                categoryId: parseInt(document.getElementById('cakeCategory').value),
+                price: parseFloat(document.getElementById('cakePrice').value),
+                weight: parseFloat(document.getElementById('cakeWeight').value),
+                description: document.getElementById('cakeDescription').value,
+                photo: document.getElementById('cakePhoto').value,
+                available: document.getElementById('cakeAvailable').checked
+            };
+
+            // Загрузка фото
+            const fileInput = document.getElementById('cakePhotoFile');
+            if (fileInput.files.length > 0) {
+                const formData = new FormData();
+                formData.append('photo', fileInput.files[0]);
+
+                try {
+                    const uploadResponse = await fetch('/api/upload', {
+                        method: 'POST',
+                        body: formData
+                    });
+                    const uploadResult = await uploadResponse.json();
+                    if (uploadResult.success) {
+                        cakeData.photo = uploadResult.url;
+                    }
+                } catch (error) {
+                    console.error('Ошибка загрузки фото:', error);
+                }
+            }
+
+            const cakeId = document.getElementById('cakeId').value;
+            const url = cakeId ? `/api/admin/cakes/${cakeId}` : '/api/admin/cakes';
+            const method = cakeId ? 'PUT' : 'POST';
+
+            try {
+                const response = await fetch(url, {
+                    method: method,
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(cakeData)
+                });
+
+                if (response.ok) {
+                    showNotification(cakeId ? 'Товар обновлен' : 'Товар добавлен');
+                    closeCakeModal();
+                    loadTab('cakes');
+                }
+            } catch (error) {
+                console.error('Ошибка сохранения:', error);
+            }
+        }
+
+        async function deleteCake(cakeId) {
+            if (!confirm('Удалить товар?')) return;
+
+            try {
+                const response = await fetch(`/api/admin/cakes/${cakeId}`, {
+                    method: 'DELETE'
+                });
+
+                if (response.ok) {
+                    showNotification('Товар удален');
+                    loadTab('cakes');
+                }
+            } catch (error) {
+                console.error('Ошибка удаления:', error);
+            }
+        }
+
+        // ========== КАТЕГОРИИ ==========
+        async function loadCategories() {
+            try {
+                const response = await fetch('/api/admin/categories');
+                const categories = await response.json();
+
+                const categoriesList = document.getElementById('categoriesList');
+
+                if (categories.length === 0) {
+                    categoriesList.innerHTML = '<p>Нет категорий</p>';
+                    return;
+                }
+
+                let html = '';
+                categories.forEach(cat => {
+                    html += `
+                        <div class="admin-card">
+                            <div>
+                                <h3>${cat.name}</h3>
+                                <p>${cat.description || 'Нет описания'}</p>
+                            </div>
+                            <div class="admin-card-actions">
+                                <button class="btn" onclick="openCategoryModal(${cat.id})">✏️</button>
+                                <button class="btn" onclick="deleteCategory(${cat.id})">🗑️</button>
+                            </div>
+                        </div>
+                    `;
+                });
+
+                categoriesList.innerHTML = html;
+            } catch (error) {
+                console.error('Ошибка загрузки категорий:', error);
+            }
+        }
+
+        function openCategoryModal(categoryId = null) {
+            if (categoryId) {
+                // Заглушка - в реальном приложении нужно загружать данные категории
+                document.getElementById('categoryModalTitle').textContent = 'Редактировать категорию';
+            } else {
+                document.getElementById('categoryModalTitle').textContent = 'Добавить категорию';
+                document.getElementById('categoryForm').reset();
+                document.getElementById('categoryId').value = '';
+            }
+
+            document.getElementById('categoryModal').style.display = 'flex';
+        }
+
+        function closeCategoryModal() {
+            document.getElementById('categoryModal').style.display = 'none';
+        }
+
+        async function saveCategory(event) {
+            event.preventDefault();
+
+            const categoryData = {
+                name: document.getElementById('categoryName').value,
+                description: document.getElementById('categoryDescription').value
+            };
+
+            const categoryId = document.getElementById('categoryId').value;
+            const url = categoryId ? `/api/admin/categories/${categoryId}` : '/api/admin/categories';
+            const method = categoryId ? 'PUT' : 'POST';
+
+            try {
+                const response = await fetch(url, {
+                    method: method,
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(categoryData)
+                });
+
+                if (response.ok) {
+                    showNotification(categoryId ? 'Категория обновлена' : 'Категория добавлена');
+                    closeCategoryModal();
+                    loadTab('categories');
+                }
+            } catch (error) {
+                console.error('Ошибка сохранения:', error);
+            }
+        }
+
+        async function deleteCategory(categoryId) {
+            if (!confirm('Удалить категорию? Товары в этой категории будут удалены?')) return;
+
+            try {
+                const response = await fetch(`/api/admin/categories/${categoryId}`, {
+                    method: 'DELETE'
+                });
+
+                if (response.ok) {
+                    showNotification('Категория удалена');
+                    loadTab('categories');
+                } else {
+                    const error = await response.json();
+                    alert(error.error || 'Ошибка удаления');
+                }
+            } catch (error) {
+                console.error('Ошибка удаления:', error);
+            }
+        }
+
+        // ========== ПОЛЬЗОВАТЕЛИ ==========
+        async function loadUsers() {
+            try {
+                const response = await fetch('/api/admin/users');
+                const users = await response.json();
+
+                const usersList = document.getElementById('usersList');
+
+                if (users.length === 0) {
+                    usersList.innerHTML = '<p>Нет пользователей</p>';
+                    return;
+                }
+
+                let html = '';
+                users.forEach(user => {
+                    const roleClass = user.role === 'admin' ? 'role-admin' :
+                                     user.role === 'courier' ? 'role-courier' : 'role-customer';
+
+                    html += `
+                        <div class="admin-card">
+                            <div>
+                                <h3>${user.firstName}</h3>
+                                <p>@${user.username || 'нет username'} • ID: ${user.telegramId}</p>
+                                <p>${user.phone || 'Нет телефона'}</p>
+                                <span class="role-badge ${roleClass}">${user.role}</span>
+                            </div>
+                            <div class="admin-card-actions">
+                                <button class="btn" onclick="openUserModal(${user.id})">✏️</button>
+                                ${user.role !== 'admin' ? `<button class="btn" onclick="deleteUser(${user.id})">🗑️</button>` : ''}
+                            </div>
+                        </div>
+                    `;
+                });
+
+                usersList.innerHTML = html;
+            } catch (error) {
+                console.error('Ошибка загрузки пользователей:', error);
+            }
+        }
+
+        function openUserModal(userId = null) {
+            if (userId) {
+                document.getElementById('userModalTitle').textContent = 'Редактировать пользователя';
+                // В реальном приложении нужно загрузить данные пользователя
+            } else {
+                document.getElementById('userModalTitle').textContent = 'Добавить пользователя';
+                document.getElementById('userForm').reset();
+                document.getElementById('userId').value = '';
+            }
+
+            document.getElementById('userModal').style.display = 'flex';
+        }
+
+        function closeUserModal() {
+            document.getElementById('userModal').style.display = 'none';
+        }
+
+        async function saveUser(event) {
+            event.preventDefault();
+
+            const userData = {
+                telegramId: parseInt(document.getElementById('userTelegramId').value),
+                firstName: document.getElementById('userFirstName').value,
+                username: document.getElementById('userUsername').value,
+                phone: document.getElementById('userPhone').value,
+                role: document.getElementById('userRole').value
+            };
+
+            const userId = document.getElementById('userId').value;
+            const url = userId ? `/api/admin/users/${userId}` : '/api/admin/users';
+            const method = userId ? 'PUT' : 'POST';
+
+            try {
+                const response = await fetch(url, {
+                    method: method,
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(userData)
+                });
+
+                if (response.ok) {
+                    showNotification(userId ? 'Пользователь обновлен' : 'Пользователь добавлен');
+                    closeUserModal();
+                    loadTab('users');
+                } else {
+                    const error = await response.json();
+                    alert(error.error || 'Ошибка сохранения');
+                }
+            } catch (error) {
+                console.error('Ошибка сохранения:', error);
+            }
+        }
+
+        async function deleteUser(userId) {
+            if (!confirm('Удалить пользователя?')) return;
+
+            try {
+                const response = await fetch(`/api/admin/users/${userId}`, {
+                    method: 'DELETE'
+                });
+
+                if (response.ok) {
+                    showNotification('Пользователь удален');
+                    loadTab('users');
+                }
+            } catch (error) {
+                console.error('Ошибка удаления:', error);
+            }
+        }
+
+        // ========== ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ ==========
+        function showNotification(message) {
+            const notification = document.createElement('div');
+            notification.className = 'notification';
+            notification.textContent = message;
+            document.body.appendChild(notification);
+
+            setTimeout(() => {
+                notification.remove();
+            }, 3000);
+        }
+
+        // Запуск
+        init();
+    </script>
+</body>
+</html>

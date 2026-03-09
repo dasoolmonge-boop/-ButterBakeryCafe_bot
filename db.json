@@ -1,0 +1,92 @@
+{
+  "categories": [
+    {
+      "id": 1,
+      "name": "Торты",
+      "description": "Авторские торты на любой вкус"
+    },
+    {
+      "id": 2,
+      "name": "Круассаны",
+      "description": "Хрустящая слоеная выпечка"
+    },
+    {
+      "id": 3,
+      "name": "Капкейки",
+      "description": "Маленькое удовольствие"
+    },
+    {
+      "id": 4,
+      "name": "Пирожные",
+      "description": "Нежные десерты"
+    }
+  ],
+  "cakes": [
+    {
+      "id": 1,
+      "name": "Медовик",
+      "categoryId": 1,
+      "price": 2500,
+      "weight": 1.5,
+      "description": "Классический медовый торт с нежным кремом",
+      "photo": "https://images.unsplash.com/photo-1578985545062-69928b1d9587?w=400",
+      "available": true
+    },
+    {
+      "id": 2,
+      "name": "Наполеон",
+      "categoryId": 1,
+      "price": 2800,
+      "weight": 1.8,
+      "description": "Хрустящие коржи с заварным кремом",
+      "photo": "https://images.unsplash.com/photo-1464305795233-6e7c1d10f1d8?w=400",
+      "available": true
+    },
+    {
+      "id": 3,
+      "name": "Круассан с миндалем",
+      "categoryId": 2,
+      "price": 350,
+      "weight": 0.15,
+      "description": "Свежий круассан с миндальной начинкой",
+      "photo": "https://images.unsplash.com/photo-1555507036-ab1f4038808a?w=400",
+      "available": true
+    },
+    {
+      "id": 4,
+      "name": "Капкейк ванильный",
+      "categoryId": 3,
+      "price": 180,
+      "weight": 0.1,
+      "description": "Ванильный бисквит с кремом",
+      "photo": "https://images.unsplash.com/photo-1627308595171-d1b5d671550b?w=400",
+      "available": true
+    },
+    {
+      "id": 5,
+      "name": "Пирожное картошка",
+      "categoryId": 4,
+      "price": 120,
+      "weight": 0.08,
+      "description": "Классическое пирожное из детства",
+      "photo": "https://images.unsplash.com/photo-1606313564200-e75d5e30476c?w=400",
+      "available": true
+    }
+  ],
+  "users": [
+    {
+      "id": 1,
+      "telegramId": 1066867845,
+      "username": "admin",
+      "firstName": "Главный администратор",
+      "phone": "",
+      "role": "admin",
+      "createdAt": "2024-01-01T10:00:00.000Z"
+    }
+  ],
+  "orders": [],
+  "nextCakeId": 6,
+  "nextOrderId": 1,
+  "nextCategoryId": 5,
+  "nextUserId": 2
+}
