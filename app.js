@@ -853,7 +853,7 @@ function sendOrderToAdmin(orderData) {
 
     // Определяем домен для ссылки
     const protocol = 'https';
-    const host = 'flowerdelivery.bothost.ru'; // ЗАМЕНИТЕ НА ВАШ РЕАЛЬНЫЙ ДОМЕН
+    const host = 'butterbakerycafe.bothost.ru'; // ЗАМЕНИТЕ НА ВАШ РЕАЛЬНЫЙ ДОМЕН
     const adminLink = `${protocol}://${host}/admin`;
 
     const message =
@@ -922,4 +922,5 @@ server.listen(PORT, '0.0.0.0', () => {
     console.log(`👑 Админ-панель: http://localhost:${PORT}/admin`);
     console.log(`💾 Данные сохраняются в: ${DB_FILE}`);
     console.log(`📸 Загрузки сохраняются в: ${UPLOAD_DIR}`);
+
 });
