@@ -71,6 +71,36 @@
       "description": "Классическое пирожное из детства",
       "photo": "https://images.unsplash.com/photo-1606313564200-e75d5e30476c?w=400",
       "available": true
+    },
+    {
+      "id": 6,
+      "name": "Эклер",
+      "categoryId": 4,
+      "price": 150,
+      "weight": 0.1,
+      "description": "Заварное пирожное с ванильным кремом",
+      "photo": "https://images.unsplash.com/photo-1603532648955-039310d9ed75?w=400",
+      "available": true
+    },
+    {
+      "id": 7,
+      "name": "Круассан с шоколадом",
+      "categoryId": 2,
+      "price": 380,
+      "weight": 0.16,
+      "description": "Свежий круассан с шоколадной начинкой",
+      "photo": "https://images.unsplash.com/photo-1540910419892-4a36d2c3266c?w=400",
+      "available": true
+    },
+    {
+      "id": 8,
+      "name": "Чизкейк",
+      "categoryId": 1,
+      "price": 3200,
+      "weight": 1.8,
+      "description": "Нежный чизкейк с ягодным соусом",
+      "photo": "https://images.unsplash.com/photo-1533134242443-d4fd215305ad?w=400",
+      "available": true
     }
   ],
   "users": [
@@ -85,7 +115,7 @@
     }
   ],
   "orders": [],
-  "nextCakeId": 6,
+  "nextCakeId": 9,
   "nextOrderId": 1,
   "nextCategoryId": 5,
   "nextUserId": 2
