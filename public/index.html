@@ -2,109 +2,129 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Butter Bakery Cafe</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=yes">
+    <title>Butter Bakery Cafe — свежая выпечка</title>
     <link rel="stylesheet" href="/style.css">
-    <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
 </head>
 <body>
     <div class="container">
         <!-- Шапка -->
         <header class="header">
-            <div class="logo">🥐 Butter Bakery</div>
+            <div class="logo">Butter <span>Bakery</span></div>
             <div class="user-info" id="userInfo">
                 <span id="userName">Загрузка...</span>
-                <!-- Кнопка админ-панели (будет показываться только админам) -->
-                <button id="adminBtn" style="display: none;" onclick="goToAdmin()">👑</button>
+                <button id="adminBtn" style="display: none;" onclick="goToAdmin()">Админ-панель</button>
             </div>
         </header>
 
-        <!-- Навигация по категориям -->
+        <!-- Категории -->
         <div class="categories-nav" id="categoriesNav">
-            <button class="category-btn active" data-category-id="all">Все</button>
+            <button class="category-btn active" data-category-id="all">Всё</button>
         </div>
 
-        <!-- Основной контент - товары в 2 столбца -->
+        <!-- Сетка товаров -->
         <div class="cakes-grid" id="cakesGrid"></div>
-
-        <!-- Корзина -->
-        <div class="cart-sidebar" id="cartSidebar">
-            <h3>🛒 Корзина</h3>
-            <div id="cartItems"></div>
-            <div class="cart-total" id="cartTotal">0 ₽</div>
-            <button class="btn btn-primary btn-block" id="checkoutBtn" onclick="openOrderModal()">Заказать</button>
-        </div>
     </div>
 
-    <!-- Модальное окно заказа -->
+    <!-- Корзина (справа снизу) -->
+    <div class="cart-sidebar" id="cartSidebar">
+        <h3>Корзина</h3>
+        <div class="cart-items" id="cartItems">
+            <div class="empty-cart">Добавьте товары</div>
+        </div>
+        <div class="cart-total" id="cartTotal">0 ₽</div>
+        <button class="btn btn-primary btn-block" id="checkoutBtn" onclick="openOrderModal()">
+            Оформить заказ
+        </button>
+    </div>
+
+    <!-- Модалка оформления заказа -->
     <div id="orderModal" class="modal" style="display: none;">
         <div class="modal-content">
             <div class="modal-header">
-                <h2>Оформление</h2>
+                <h2>Оформление заказа</h2>
                 <button class="modal-close" onclick="closeOrderModal()">×</button>
             </div>
             <form id="orderForm" onsubmit="submitOrder(event)">
                 <div class="form-group">
-                    <input type="text" class="form-input" id="customerName" placeholder="Ваше имя" required>
+                    <label class="form-label">Имя</label>
+                    <input type="text" class="form-input" id="customerName" placeholder="Как к вам обращаться?" required>
                 </div>
                 
                 <div class="form-group">
-                    <input type="tel" class="form-input" id="customerPhone" placeholder="Телефон" required>
+                    <label class="form-label">Телефон</label>
+                    <input type="tel" class="form-input" id="customerPhone" placeholder="+7 (___) ___-__-__" required>
                 </div>
                 
                 <div class="form-group">
-                    <textarea class="form-textarea" id="customerAddress" placeholder="Адрес доставки" required></textarea>
+                    <label class="form-label">Адрес доставки</label>
+                    <textarea class="form-textarea" id="customerAddress" placeholder="Улица, дом, квартира" required></textarea>
                 </div>
                 
                 <div class="form-group">
+                    <label class="form-label">Дата доставки</label>
                     <input type="date" class="form-input" id="deliveryDate" required>
                 </div>
                 
                 <div class="form-group">
+                    <label class="form-label">Время доставки</label>
                     <input type="time" class="form-input" id="deliveryTime" required>
                 </div>
                 
                 <div class="form-group">
-                    <textarea class="form-textarea" id="orderWish" placeholder="Пожелания"></textarea>
+                    <label class="form-label">Комментарий к заказу</label>
+                    <textarea class="form-textarea" id="orderWish" placeholder="Пожелания, звонок в домофон и т.д."></textarea>
                 </div>
                 
-                <button type="submit" class="btn btn-primary btn-block">✅ Подтвердить</button>
+                <button type="submit" class="btn btn-primary btn-block">
+                    ✅ Подтвердить заказ
+                </button>
             </form>
         </div>
     </div>
 
     <script>
-        // Глобальные переменные
+        // Конфигурация
+        const CONFIG = {
+            ANIMATION_DURATION: 300,
+            NOTIFICATION_DURATION: 3000,
+            MIN_ORDER_DAYS: 1
+        };
+
+        // Состояние приложения
         let tg = window.Telegram?.WebApp;
         let user = null;
         let cart = [];
         let categories = [];
         let allCakes = [];
         let currentCategory = 'all';
+        let isLoading = false;
 
-        // Инициализация приложения
+        // Инициализация
+        document.addEventListener('DOMContentLoaded', init);
+
         async function init() {
+            setupTelegram();
+            await loadUser();
+            await Promise.all([loadCategories(), loadCakes()]);
+            setupEventListeners();
+        }
+
+        function setupTelegram() {
             if (tg) {
                 tg.expand();
                 tg.ready();
-                tg.setHeaderColor('#1A1512');
-                tg.setBackgroundColor('#1A1512');
-                
-                const tgUser = tg.initDataUnsafe?.user;
-                if (tgUser) {
-                    user = await registerUser(tgUser);
-                    document.getElementById('userName').textContent = user.firstName?.split(' ')[0] || 'Гость';
-                    
-                    await checkAdminStatus(tgUser.id);
-                }
+                tg.setHeaderColor('#FFFFFF');
+                tg.setBackgroundColor('#FAF7F2');
             }
-
-            await loadCategories();
-            await loadCakes();
         }
 
-        async function registerUser(tgUser) {
+        async function loadUser() {
+            const tgUser = tg?.initDataUnsafe?.user;
+            if (!tgUser) return;
+
             try {
                 const response = await fetch('/api/user', {
                     method: 'POST',
@@ -115,10 +135,12 @@
                         firstName: tgUser.first_name
                     })
                 });
-                return await response.json();
+                user = await response.json();
+                document.getElementById('userName').textContent = user.firstName?.split(' ')[0] || 'Гость';
+                
+                await checkAdminStatus(tgUser.id);
             } catch (error) {
-                console.error('Ошибка регистрации:', error);
-                return null;
+                console.error('Ошибка загрузки пользователя:', error);
             }
         }
 
@@ -131,7 +153,6 @@
                 });
                 
                 const data = await response.json();
-                
                 if (data.isAdmin) {
                     document.getElementById('adminBtn').style.display = 'inline-block';
                 }
@@ -150,14 +171,15 @@
                 categories = await response.json();
                 
                 const nav = document.getElementById('categoriesNav');
-                nav.innerHTML = '<button class="category-btn active" data-category-id="all">Все</button>';
+                nav.innerHTML = '<button class="category-btn active" data-category-id="all">Всё</button>';
                 
-                categories.forEach(cat => {
+                categories.forEach((cat, index) => {
                     const btn = document.createElement('button');
                     btn.className = 'category-btn';
                     btn.dataset.categoryId = cat.id;
                     btn.textContent = cat.name;
                     btn.onclick = () => filterByCategory(cat.id);
+                    btn.style.animationDelay = `${index * 50}ms`;
                     nav.appendChild(btn);
                 });
             } catch (error) {
@@ -166,6 +188,9 @@
         }
 
         async function loadCakes() {
+            if (isLoading) return;
+            isLoading = true;
+
             try {
                 const url = currentCategory === 'all' 
                     ? '/api/cakes' 
@@ -176,10 +201,15 @@
                 displayCakes(allCakes);
             } catch (error) {
                 console.error('Ошибка загрузки товаров:', error);
+                showNotification('Ошибка загрузки', 'error');
+            } finally {
+                isLoading = false;
             }
         }
 
         function filterByCategory(categoryId) {
+            if (currentCategory === categoryId) return;
+            
             currentCategory = categoryId;
             
             document.querySelectorAll('.category-btn').forEach(btn => {
@@ -197,23 +227,41 @@
             const grid = document.getElementById('cakesGrid');
             grid.innerHTML = '';
             
-            cakes.forEach(cake => {
+            if (cakes.length === 0) {
+                grid.innerHTML = '<div style="text-align: center; padding: 40px; color: var(--text-soft);">Нет товаров в этой категории</div>';
+                return;
+            }
+            
+            cakes.forEach((cake, index) => {
                 if (!cake.available) return;
                 
                 const card = document.createElement('div');
                 card.className = 'cake-card';
+                card.style.animationDelay = `${index * 100}ms`;
+                
                 card.innerHTML = `
-                    <img src="${cake.photo || 'https://via.placeholder.com/200'}" alt="${cake.name}" class="cake-image" loading="lazy">
+                    <img src="${cake.photo || 'https://images.unsplash.com/photo-1578985545062-69928b1d9587?w=400'}" 
+                         alt="${cake.name}" 
+                         class="cake-image" 
+                         loading="lazy"
+                         onerror="this.src='https://images.unsplash.com/photo-1578985545062-69928b1d9587?w=400'">
                     <div class="cake-name">${cake.name}</div>
                     <div class="cake-description">${cake.description}</div>
                     <div class="cake-details">
-                        <span class="cake-price">${cake.price} ₽</span>
+                        <span class="cake-price">${formatPrice(cake.price)} ₽</span>
                         <span class="cake-weight">${cake.weight} кг</span>
                     </div>
-                    <button class="btn btn-primary" onclick="addToCart(${cake.id})">➕</button>
+                    <button class="btn btn-primary" onclick="addToCart(${cake.id})">
+                        В корзину
+                    </button>
                 `;
+                
                 grid.appendChild(card);
             });
+        }
+
+        function formatPrice(price) {
+            return price.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ' ');
         }
 
         function addToCart(cakeId) {
@@ -228,9 +276,16 @@
             }
             
             updateCart();
-            showNotification('Добавлено');
+            showNotification('Добавлено в корзину');
             
             if (tg) tg.HapticFeedback?.impactOccurred('light');
+            
+            // Анимация кнопки
+            const btn = event.target;
+            btn.style.transform = 'scale(0.95)';
+            setTimeout(() => {
+                btn.style.transform = '';
+            }, 200);
         }
 
         function removeFromCart(cakeId) {
@@ -255,7 +310,7 @@
             const cartTotal = document.getElementById('cartTotal');
             
             if (cart.length === 0) {
-                cartItems.innerHTML = '<p style="text-align: center; color: var(--text-muted);">Пусто</p>';
+                cartItems.innerHTML = '<div class="empty-cart">Добавьте товары</div>';
                 cartTotal.textContent = '0 ₽';
                 return;
             }
@@ -263,26 +318,26 @@
             let html = '';
             let total = 0;
             
-            cart.forEach(item => {
+            cart.forEach((item, index) => {
                 total += item.price * item.quantity;
                 html += `
-                    <div class="cart-item">
+                    <div class="cart-item" style="animation-delay: ${index * 50}ms">
                         <div class="cart-item-info">
                             <div class="cart-item-name">${item.name}</div>
-                            <div class="cart-item-price">${item.price}₽ × ${item.quantity}</div>
+                            <div class="cart-item-price">${formatPrice(item.price)} ₽ × ${item.quantity}</div>
                         </div>
                         <div class="cart-item-actions">
                             <button class="cart-quantity-btn" onclick="updateQuantity(${item.id}, -1)">−</button>
-                            <span>${item.quantity}</span>
+                            <span style="min-width: 20px; text-align: center;">${item.quantity}</span>
                             <button class="cart-quantity-btn" onclick="updateQuantity(${item.id}, 1)">+</button>
-                            <button class="cart-quantity-btn" onclick="removeFromCart(${item.id})" style="color: #B71C1C;">×</button>
+                            <button class="cart-quantity-btn" onclick="removeFromCart(${item.id})" style="color: #C62828;">×</button>
                         </div>
                     </div>
                 `;
             });
             
             cartItems.innerHTML = html;
-            cartTotal.textContent = `${total} ₽`;
+            cartTotal.textContent = `${formatPrice(total)} ₽`;
         }
 
         function openOrderModal() {
@@ -291,27 +346,46 @@
                 return;
             }
             
+            // Устанавливаем минимальную дату (завтра)
             const tomorrow = new Date();
-            tomorrow.setDate(tomorrow.getDate() + 1);
-            document.getElementById('deliveryDate').min = tomorrow.toISOString().split('T')[0];
+            tomorrow.setDate(tomorrow.getDate() + CONFIG.MIN_ORDER_DAYS);
+            const minDate = tomorrow.toISOString().split('T')[0];
+            
+            const dateInput = document.getElementById('deliveryDate');
+            dateInput.min = minDate;
+            dateInput.value = minDate;
             
             document.getElementById('orderModal').style.display = 'flex';
+            document.body.style.overflow = 'hidden';
         }
 
         function closeOrderModal() {
             document.getElementById('orderModal').style.display = 'none';
+            document.body.style.overflow = '';
         }
 
         async function submitOrder(event) {
             event.preventDefault();
             
+            // Валидация
+            const name = document.getElementById('customerName').value.trim();
+            const phone = document.getElementById('customerPhone').value.trim();
+            const address = document.getElementById('customerAddress').value.trim();
+            const deliveryDate = document.getElementById('deliveryDate').value;
+            const deliveryTime = document.getElementById('deliveryTime').value;
+            
+            if (!name || !phone || !address || !deliveryDate || !deliveryTime) {
+                showNotification('Заполните все поля', 'error');
+                return;
+            }
+            
             const orderData = {
-                name: document.getElementById('customerName').value,
-                phone: document.getElementById('customerPhone').value,
-                address: document.getElementById('customerAddress').value,
-                deliveryDate: document.getElementById('deliveryDate').value,
-                deliveryTime: document.getElementById('deliveryTime').value,
-                wish: document.getElementById('orderWish').value,
+                name,
+                phone,
+                address,
+                deliveryDate,
+                deliveryTime,
+                wish: document.getElementById('orderWish').value.trim(),
                 cart: cart.map(item => ({
                     id: item.id,
                     name: item.name,
@@ -334,32 +408,67 @@
                 const result = await response.json();
                 
                 if (result.success) {
-                    showNotification('Заказ оформлен!');
+                    showNotification('Заказ оформлен! Мы скоро свяжемся с вами');
                     cart = [];
                     updateCart();
                     closeOrderModal();
                     document.getElementById('orderForm').reset();
                     
                     if (tg) tg.HapticFeedback?.notification('success');
+                } else {
+                    showNotification('Ошибка при оформлении заказа', 'error');
                 }
             } catch (error) {
                 console.error('Ошибка:', error);
-                showNotification('Ошибка');
+                showNotification('Ошибка сервера', 'error');
             }
         }
 
-        function showNotification(message) {
+        function showNotification(message, type = 'success') {
             const notification = document.createElement('div');
             notification.className = 'notification';
             notification.textContent = message;
+            notification.style.borderLeftColor = type === 'error' ? '#C62828' : 'var(--chocolate)';
             document.body.appendChild(notification);
             
             setTimeout(() => {
                 notification.remove();
-            }, 2000);
+            }, CONFIG.NOTIFICATION_DURATION);
         }
 
-        init();
+        function setupEventListeners() {
+            // Закрытие модалки по клику вне
+            window.addEventListener('click', (e) => {
+                const modal = document.getElementById('orderModal');
+                if (e.target === modal) {
+                    closeOrderModal();
+                }
+            });
+            
+            // Адаптация для мобильных
+            if (window.innerWidth <= 768) {
+                document.querySelector('.cart-sidebar').style.maxHeight = '50vh';
+            }
+        }
+
+        // Форматирование телефона
+        document.getElementById('customerPhone')?.addEventListener('input', function(e) {
+            let value = e.target.value.replace(/\D/g, '');
+            if (value.length > 0) {
+                if (value.length <= 1) {
+                    value = `+7 (${value}`;
+                } else if (value.length <= 4) {
+                    value = `+7 (${value.slice(1, 4)}`;
+                } else if (value.length <= 7) {
+                    value = `+7 (${value.slice(1, 4)}) ${value.slice(4, 7)}`;
+                } else if (value.length <= 9) {
+                    value = `+7 (${value.slice(1, 4)}) ${value.slice(4, 7)}-${value.slice(7, 9)}`;
+                } else {
+                    value = `+7 (${value.slice(1, 4)}) ${value.slice(4, 7)}-${value.slice(7, 9)}-${value.slice(9, 11)}`;
+                }
+                e.target.value = value;
+            }
+        });
     </script>
 </body>
 </html>
