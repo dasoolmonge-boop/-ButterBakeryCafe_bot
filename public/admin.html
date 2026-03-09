@@ -3,19 +3,19 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Butter Bakery Cafe - Админ-панель</title>
+    <title>Butter Bakery Cafe — Админ-панель</title>
     <link rel="stylesheet" href="/style.css">
-    <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
 </head>
 <body>
     <div class="container">
-        <!-- Шапка -->
+        <!-- Шапка с кнопкой возврата -->
         <header class="header">
-            <div class="logo">🥐 Butter Bakery Cafe - Админ-панель</div>
-            <div class="user-info" id="userInfo">
+            <div class="logo">Butter <span>Bakery</span> | Админ</div>
+            <div class="user-info">
                 <span id="userName">Загрузка...</span>
-                <span id="userRole" class="role-badge role-admin">Админ</span>
+                <button class="btn" onclick="goToClient()" style="background: var(--beige); color: var(--chocolate);">🔙 В магазин</button>
             </div>
         </header>
 
@@ -27,7 +27,7 @@
             <button class="admin-tab" data-tab="users">👥 Пользователи</button>
         </div>
 
-        <!-- Контент вкладок -->
+        <!-- Контент -->
         <div id="tabContent"></div>
     </div>
 
@@ -40,51 +40,46 @@
             </div>
             <form id="cakeForm" onsubmit="saveCake(event)">
                 <input type="hidden" id="cakeId">
-
+                
                 <div class="form-group">
                     <label class="form-label">Название</label>
                     <input type="text" class="form-input" id="cakeName" required>
                 </div>
-
+                
                 <div class="form-group">
                     <label class="form-label">Категория</label>
                     <select class="form-select" id="cakeCategory" required>
                         <option value="">Выберите категорию</option>
                     </select>
                 </div>
-
+                
                 <div class="form-group">
                     <label class="form-label">Цена (₽)</label>
                     <input type="number" class="form-input" id="cakePrice" required>
                 </div>
-
+                
                 <div class="form-group">
                     <label class="form-label">Вес (кг)</label>
                     <input type="number" step="0.1" class="form-input" id="cakeWeight" required>
                 </div>
-
+                
                 <div class="form-group">
                     <label class="form-label">Описание</label>
                     <textarea class="form-textarea" id="cakeDescription" required></textarea>
                 </div>
-
+                
                 <div class="form-group">
                     <label class="form-label">Фото URL</label>
-                    <input type="url" class="form-input" id="cakePhoto" placeholder="https://... или /uploads/...">
-                    <small>Оставьте пустым для загрузки файла</small>
+                    <input type="url" class="form-input" id="cakePhoto" placeholder="https://...">
+                    <small>Оставьте пустым, если нет фото</small>
                 </div>
-
-                <div class="form-group">
-                    <label class="form-label">Или загрузите файл</label>
-                    <input type="file" class="form-input" id="cakePhotoFile" accept="image/*">
-                </div>
-
+                
                 <div class="form-group">
                     <label class="form-label">
                         <input type="checkbox" id="cakeAvailable" checked> Доступен для заказа
                     </label>
                 </div>
-
+                
                 <button type="submit" class="btn btn-primary btn-block">Сохранить</button>
             </form>
         </div>
@@ -99,17 +94,17 @@
             </div>
             <form id="categoryForm" onsubmit="saveCategory(event)">
                 <input type="hidden" id="categoryId">
-
+                
                 <div class="form-group">
-                    <label class="form-label">Название категории</label>
+                    <label class="form-label">Название</label>
                     <input type="text" class="form-input" id="categoryName" required>
                 </div>
-
+                
                 <div class="form-group">
                     <label class="form-label">Описание</label>
                     <textarea class="form-textarea" id="categoryDescription"></textarea>
                 </div>
-
+                
                 <button type="submit" class="btn btn-primary btn-block">Сохранить</button>
             </form>
         </div>
@@ -124,27 +119,27 @@
             </div>
             <form id="userForm" onsubmit="saveUser(event)">
                 <input type="hidden" id="userId">
-
+                
                 <div class="form-group">
                     <label class="form-label">Telegram ID</label>
                     <input type="number" class="form-input" id="userTelegramId" required>
                 </div>
-
+                
                 <div class="form-group">
                     <label class="form-label">Имя</label>
                     <input type="text" class="form-input" id="userFirstName" required>
                 </div>
-
+                
                 <div class="form-group">
                     <label class="form-label">Username (без @)</label>
                     <input type="text" class="form-input" id="userUsername">
                 </div>
-
+                
                 <div class="form-group">
                     <label class="form-label">Телефон</label>
                     <input type="tel" class="form-input" id="userPhone">
                 </div>
-
+                
                 <div class="form-group">
                     <label class="form-label">Роль</label>
                     <select class="form-select" id="userRole" required>
@@ -153,7 +148,7 @@
                         <option value="admin">Администратор</option>
                     </select>
                 </div>
-
+                
                 <button type="submit" class="btn btn-primary btn-block">Сохранить</button>
             </form>
         </div>
@@ -184,21 +179,24 @@
         let currentOrderId = null;
 
         // Инициализация
+        document.addEventListener('DOMContentLoaded', init);
+
         async function init() {
             if (tg) {
                 tg.expand();
                 tg.ready();
-
-                const tgUser = tg.initDataUnsafe?.user;
-                if (tgUser) {
-                    user = await checkAdmin(tgUser);
-                    document.getElementById('userName').textContent = user?.firstName || 'Админ';
-                }
+                tg.setHeaderColor('#FFFFFF');
+                tg.setBackgroundColor('#FAF7F2');
             }
-
-            // Загружаем первую вкладку
+            
+            const tgUser = tg?.initDataUnsafe?.user;
+            if (tgUser) {
+                user = await checkAdmin(tgUser);
+                document.getElementById('userName').textContent = user?.firstName || 'Админ';
+            }
+            
             loadTab('orders');
-
+            
             // Обработчики вкладок
             document.querySelectorAll('.admin-tab').forEach(tab => {
                 tab.addEventListener('click', () => {
@@ -209,6 +207,11 @@
             });
         }
 
+        // Возврат в магазин
+        function goToClient() {
+            window.location.href = '/';
+        }
+
         // Проверка прав администратора
         async function checkAdmin(tgUser) {
             try {
@@ -217,14 +220,14 @@
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ userId: tgUser.id })
                 });
-
+                
                 const data = await response.json();
-
+                
                 if (!data.isAdmin) {
                     alert('У вас нет прав доступа к админ-панели');
                     if (tg) tg.close();
                 }
-
+                
                 return data.user;
             } catch (error) {
                 console.error('Ошибка проверки прав:', error);
@@ -236,7 +239,7 @@
         async function loadTab(tabName) {
             currentTab = tabName;
             const content = document.getElementById('tabContent');
-
+            
             switch(tabName) {
                 case 'orders':
                     content.innerHTML = '<h2>Заказы</h2><div id="ordersList">Загрузка...</div>';
@@ -274,26 +277,26 @@
             try {
                 const response = await fetch('/api/admin/orders');
                 const orders = await response.json();
-
+                
                 const ordersList = document.getElementById('ordersList');
-
+                
                 if (orders.length === 0) {
                     ordersList.innerHTML = '<p>Нет заказов</p>';
                     return;
                 }
-
+                
                 let html = '';
                 orders.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
-
+                
                 orders.forEach(order => {
-                    const statusClass = order.status === 'active' ? 'status-active' :
-                                       order.status === 'assigned_to_courier' ? 'status-assigned' :
+                    const statusClass = order.status === 'active' ? 'status-active' : 
+                                       order.status === 'assigned_to_courier' ? 'status-assigned' : 
                                        order.status === 'delivered' ? 'status-delivered' : 'status-cancelled';
-
+                    
                     const statusText = order.status === 'active' ? 'Активен' :
                                       order.status === 'assigned_to_courier' ? 'Передан курьеру' :
                                       order.status === 'delivered' ? 'Доставлен' : 'Отменен';
-
+                    
                     html += `
                         <div class="admin-card">
                             <div>
@@ -306,17 +309,17 @@
                                 <p><span class="status-badge ${statusClass}">${statusText}</span></p>
                             </div>
                             <div class="admin-card-actions">
-                                ${order.status === 'active' ?
+                                ${order.status === 'active' ? 
                                     `<button class="btn" onclick="openAssignCourierModal(${order.id})">🚚 Назначить курьера</button>` : ''}
-                                ${order.status === 'assigned_to_courier' ?
-                                    `<button class="btn" onclick="markAsDelivered(${order.id})">✅ Отметить доставленным</button>` : ''}
+                                ${order.status === 'assigned_to_courier' ? 
+                                    `<button class="btn" onclick="markAsDelivered(${order.id})">✅ Доставлен</button>` : ''}
                                 ${order.status !== 'cancelled' && order.status !== 'delivered' ?
                                     `<button class="btn" onclick="cancelOrder(${order.id})">❌ Отменить</button>` : ''}
                             </div>
                         </div>
                     `;
                 });
-
+                
                 ordersList.innerHTML = html;
             } catch (error) {
                 console.error('Ошибка загрузки заказов:', error);
@@ -326,18 +329,18 @@
         // Назначение курьера
         async function openAssignCourierModal(orderId) {
             currentOrderId = orderId;
-
+            
             try {
                 const response = await fetch('/api/admin/couriers');
                 const couriers = await response.json();
-
+                
                 const select = document.getElementById('courierSelect');
                 select.innerHTML = '<option value="">Выберите курьера</option>';
-
+                
                 couriers.forEach(courier => {
                     select.innerHTML += `<option value="${courier.id}">${courier.firstName} (${courier.username || 'нет username'})</option>`;
                 });
-
+                
                 document.getElementById('assignCourierModal').style.display = 'flex';
             } catch (error) {
                 console.error('Ошибка загрузки курьеров:', error);
@@ -350,14 +353,14 @@
                 alert('Выберите курьера');
                 return;
             }
-
+            
             try {
                 const response = await fetch(`/api/admin/orders/${currentOrderId}/assign-courier`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ courierId: parseInt(courierId) })
                 });
-
+                
                 if (response.ok) {
                     showNotification('Курьер назначен, уведомления отправлены');
                     closeAssignCourierModal();
@@ -373,30 +376,68 @@
             currentOrderId = null;
         }
 
+        async function markAsDelivered(orderId) {
+            if (!confirm('Отметить заказ как доставленный?')) return;
+            
+            try {
+                const response = await fetch(`/api/admin/orders/${orderId}`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ status: 'delivered' })
+                });
+                
+                if (response.ok) {
+                    showNotification('Заказ отмечен как доставленный');
+                    loadOrders();
+                }
+            } catch (error) {
+                console.error('Ошибка:', error);
+            }
+        }
+
+        async function cancelOrder(orderId) {
+            if (!confirm('Отменить заказ?')) return;
+            
+            try {
+                const response = await fetch(`/api/admin/orders/${orderId}`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ status: 'cancelled' })
+                });
+                
+                if (response.ok) {
+                    showNotification('Заказ отменен');
+                    loadOrders();
+                }
+            } catch (error) {
+                console.error('Ошибка:', error);
+            }
+        }
+
         // ========== ТОВАРЫ ==========
         async function loadCakes() {
             try {
                 const response = await fetch('/api/admin/cakes');
                 const cakes = await response.json();
-
+                
                 const categoriesResponse = await fetch('/api/admin/categories');
                 const categories = await categoriesResponse.json();
-
+                
                 const cakesList = document.getElementById('cakesList');
-
+                
                 if (cakes.length === 0) {
                     cakesList.innerHTML = '<p>Нет товаров</p>';
                     return;
                 }
-
+                
                 let html = '';
                 cakes.forEach(cake => {
                     const category = categories.find(c => c.id === cake.categoryId);
-
+                    
                     html += `
                         <div class="admin-card">
                             <div style="display: flex; gap: 15px; align-items: center;">
-                                <img src="${cake.photo || 'https://via.placeholder.com/50'}" style="width: 50px; height: 50px; border-radius: 15px; object-fit: cover;">
+                                <img src="${cake.photo || 'https://via.placeholder.com/50'}" style="width: 50px; height: 50px; border-radius: 12px; object-fit: cover;">
                                 <div>
                                     <h3>${cake.name}</h3>
                                     <p>${category?.name || 'Без категории'} • ${cake.price} ₽ • ${cake.weight} кг</p>
@@ -413,7 +454,7 @@
                         </div>
                     `;
                 });
-
+                
                 cakesList.innerHTML = html;
             } catch (error) {
                 console.error('Ошибка загрузки товаров:', error);
@@ -421,23 +462,22 @@
         }
 
         async function openCakeModal(cakeId = null) {
-            // Загружаем категории для выпадающего списка
             const response = await fetch('/api/admin/categories');
             const categories = await response.json();
-
+            
             const select = document.getElementById('cakeCategory');
             select.innerHTML = '<option value="">Выберите категорию</option>';
             categories.forEach(cat => {
                 select.innerHTML += `<option value="${cat.id}">${cat.name}</option>`;
             });
-
+            
             if (cakeId) {
                 document.getElementById('cakeModalTitle').textContent = 'Редактировать товар';
-
+                
                 const cakeResponse = await fetch('/api/admin/cakes');
                 const cakes = await cakeResponse.json();
                 const cake = cakes.find(c => c.id === cakeId);
-
+                
                 if (cake) {
                     document.getElementById('cakeId').value = cake.id;
                     document.getElementById('cakeName').value = cake.name;
@@ -453,7 +493,7 @@
                 document.getElementById('cakeForm').reset();
                 document.getElementById('cakeId').value = '';
             }
-
+            
             document.getElementById('cakeModal').style.display = 'flex';
         }
 
@@ -463,7 +503,7 @@
 
         async function saveCake(event) {
             event.preventDefault();
-
+            
             const cakeData = {
                 name: document.getElementById('cakeName').value,
                 categoryId: parseInt(document.getElementById('cakeCategory').value),
@@ -473,38 +513,18 @@
                 photo: document.getElementById('cakePhoto').value,
                 available: document.getElementById('cakeAvailable').checked
             };
-
-            // Загрузка фото
-            const fileInput = document.getElementById('cakePhotoFile');
-            if (fileInput.files.length > 0) {
-                const formData = new FormData();
-                formData.append('photo', fileInput.files[0]);
-
-                try {
-                    const uploadResponse = await fetch('/api/upload', {
-                        method: 'POST',
-                        body: formData
-                    });
-                    const uploadResult = await uploadResponse.json();
-                    if (uploadResult.success) {
-                        cakeData.photo = uploadResult.url;
-                    }
-                } catch (error) {
-                    console.error('Ошибка загрузки фото:', error);
-                }
-            }
-
+            
             const cakeId = document.getElementById('cakeId').value;
             const url = cakeId ? `/api/admin/cakes/${cakeId}` : '/api/admin/cakes';
             const method = cakeId ? 'PUT' : 'POST';
-
+            
             try {
                 const response = await fetch(url, {
                     method: method,
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify(cakeData)
                 });
-
+                
                 if (response.ok) {
                     showNotification(cakeId ? 'Товар обновлен' : 'Товар добавлен');
                     closeCakeModal();
@@ -517,12 +537,12 @@
 
         async function deleteCake(cakeId) {
             if (!confirm('Удалить товар?')) return;
-
+            
             try {
                 const response = await fetch(`/api/admin/cakes/${cakeId}`, {
                     method: 'DELETE'
                 });
-
+                
                 if (response.ok) {
                     showNotification('Товар удален');
                     loadTab('cakes');
@@ -537,14 +557,14 @@
             try {
                 const response = await fetch('/api/admin/categories');
                 const categories = await response.json();
-
+                
                 const categoriesList = document.getElementById('categoriesList');
-
+                
                 if (categories.length === 0) {
                     categoriesList.innerHTML = '<p>Нет категорий</p>';
                     return;
                 }
-
+                
                 let html = '';
                 categories.forEach(cat => {
                     html += `
@@ -560,7 +580,7 @@
                         </div>
                     `;
                 });
-
+                
                 categoriesList.innerHTML = html;
             } catch (error) {
                 console.error('Ошибка загрузки категорий:', error);
@@ -569,14 +589,13 @@
 
         function openCategoryModal(categoryId = null) {
             if (categoryId) {
-                // Заглушка - в реальном приложении нужно загружать данные категории
                 document.getElementById('categoryModalTitle').textContent = 'Редактировать категорию';
             } else {
                 document.getElementById('categoryModalTitle').textContent = 'Добавить категорию';
                 document.getElementById('categoryForm').reset();
                 document.getElementById('categoryId').value = '';
             }
-
+            
             document.getElementById('categoryModal').style.display = 'flex';
         }
 
@@ -586,23 +605,23 @@
 
         async function saveCategory(event) {
             event.preventDefault();
-
+            
             const categoryData = {
                 name: document.getElementById('categoryName').value,
                 description: document.getElementById('categoryDescription').value
             };
-
+            
             const categoryId = document.getElementById('categoryId').value;
             const url = categoryId ? `/api/admin/categories/${categoryId}` : '/api/admin/categories';
             const method = categoryId ? 'PUT' : 'POST';
-
+            
             try {
                 const response = await fetch(url, {
                     method: method,
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify(categoryData)
                 });
-
+                
                 if (response.ok) {
                     showNotification(categoryId ? 'Категория обновлена' : 'Категория добавлена');
                     closeCategoryModal();
@@ -614,13 +633,13 @@
         }
 
         async function deleteCategory(categoryId) {
-            if (!confirm('Удалить категорию? Товары в этой категории будут удалены?')) return;
-
+            if (!confirm('Удалить категорию?')) return;
+            
             try {
                 const response = await fetch(`/api/admin/categories/${categoryId}`, {
                     method: 'DELETE'
                 });
-
+                
                 if (response.ok) {
                     showNotification('Категория удалена');
                     loadTab('categories');
@@ -638,19 +657,19 @@
             try {
                 const response = await fetch('/api/admin/users');
                 const users = await response.json();
-
+                
                 const usersList = document.getElementById('usersList');
-
+                
                 if (users.length === 0) {
                     usersList.innerHTML = '<p>Нет пользователей</p>';
                     return;
                 }
-
+                
                 let html = '';
                 users.forEach(user => {
-                    const roleClass = user.role === 'admin' ? 'role-admin' :
+                    const roleClass = user.role === 'admin' ? 'role-admin' : 
                                      user.role === 'courier' ? 'role-courier' : 'role-customer';
-
+                    
                     html += `
                         <div class="admin-card">
                             <div>
@@ -666,7 +685,7 @@
                         </div>
                     `;
                 });
-
+                
                 usersList.innerHTML = html;
             } catch (error) {
                 console.error('Ошибка загрузки пользователей:', error);
@@ -676,13 +695,12 @@
         function openUserModal(userId = null) {
             if (userId) {
                 document.getElementById('userModalTitle').textContent = 'Редактировать пользователя';
-                // В реальном приложении нужно загрузить данные пользователя
             } else {
                 document.getElementById('userModalTitle').textContent = 'Добавить пользователя';
                 document.getElementById('userForm').reset();
                 document.getElementById('userId').value = '';
             }
-
+            
             document.getElementById('userModal').style.display = 'flex';
         }
 
@@ -692,7 +710,7 @@
 
         async function saveUser(event) {
             event.preventDefault();
-
+            
             const userData = {
                 telegramId: parseInt(document.getElementById('userTelegramId').value),
                 firstName: document.getElementById('userFirstName').value,
@@ -700,18 +718,18 @@
                 phone: document.getElementById('userPhone').value,
                 role: document.getElementById('userRole').value
             };
-
+            
             const userId = document.getElementById('userId').value;
             const url = userId ? `/api/admin/users/${userId}` : '/api/admin/users';
             const method = userId ? 'PUT' : 'POST';
-
+            
             try {
                 const response = await fetch(url, {
                     method: method,
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify(userData)
                 });
-
+                
                 if (response.ok) {
                     showNotification(userId ? 'Пользователь обновлен' : 'Пользователь добавлен');
                     closeUserModal();
@@ -727,12 +745,12 @@
 
         async function deleteUser(userId) {
             if (!confirm('Удалить пользователя?')) return;
-
+            
             try {
                 const response = await fetch(`/api/admin/users/${userId}`, {
                     method: 'DELETE'
                 });
-
+                
                 if (response.ok) {
                     showNotification('Пользователь удален');
                     loadTab('users');
@@ -742,20 +760,17 @@
             }
         }
 
-        // ========== ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ ==========
+        // Уведомления
         function showNotification(message) {
             const notification = document.createElement('div');
             notification.className = 'notification';
             notification.textContent = message;
             document.body.appendChild(notification);
-
+            
             setTimeout(() => {
                 notification.remove();
             }, 3000);
         }
-
-        // Запуск
-        init();
     </script>
 </body>
 </html>
