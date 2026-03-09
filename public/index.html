@@ -2,7 +2,7 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Butter Bakery Cafe</title>
     <link rel="stylesheet" href="/style.css">
     <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -12,9 +12,11 @@
     <div class="container">
         <!-- Шапка -->
         <header class="header">
-            <div class="logo">🥐 Butter Bakery Cafe</div>
+            <div class="logo">🥐 Butter Bakery</div>
             <div class="user-info" id="userInfo">
                 <span id="userName">Загрузка...</span>
+                <!-- Кнопка админ-панели (будет показываться только админам) -->
+                <button id="adminBtn" style="display: none;" onclick="goToAdmin()">👑</button>
             </div>
         </header>
 
@@ -23,18 +25,15 @@
             <button class="category-btn active" data-category-id="all">Все</button>
         </div>
 
-        <!-- Основной контент -->
-        <div class="main-content">
-            <h2>Наша выпечка</h2>
-            <div class="cakes-grid" id="cakesGrid"></div>
-        </div>
+        <!-- Основной контент - товары в 2 столбца -->
+        <div class="cakes-grid" id="cakesGrid"></div>
 
         <!-- Корзина -->
         <div class="cart-sidebar" id="cartSidebar">
             <h3>🛒 Корзина</h3>
             <div id="cartItems"></div>
-            <div class="cart-total" id="cartTotal">Итого: 0 ₽</div>
-            <button class="btn btn-primary btn-block" id="checkoutBtn" onclick="openOrderModal()">Оформить заказ</button>
+            <div class="cart-total" id="cartTotal">0 ₽</div>
+            <button class="btn btn-primary btn-block" id="checkoutBtn" onclick="openOrderModal()">Заказать</button>
         </div>
     </div>
 
@@ -42,41 +41,35 @@
     <div id="orderModal" class="modal" style="display: none;">
         <div class="modal-content">
             <div class="modal-header">
-                <h2>Оформление заказа</h2>
+                <h2>Оформление</h2>
                 <button class="modal-close" onclick="closeOrderModal()">×</button>
             </div>
             <form id="orderForm" onsubmit="submitOrder(event)">
                 <div class="form-group">
-                    <label class="form-label">Ваше имя</label>
-                    <input type="text" class="form-input" id="customerName" required>
+                    <input type="text" class="form-input" id="customerName" placeholder="Ваше имя" required>
                 </div>
-
+                
                 <div class="form-group">
-                    <label class="form-label">Телефон</label>
-                    <input type="tel" class="form-input" id="customerPhone" required>
+                    <input type="tel" class="form-input" id="customerPhone" placeholder="Телефон" required>
                 </div>
-
+                
                 <div class="form-group">
-                    <label class="form-label">Адрес доставки</label>
-                    <textarea class="form-textarea" id="customerAddress" required></textarea>
+                    <textarea class="form-textarea" id="customerAddress" placeholder="Адрес доставки" required></textarea>
                 </div>
-
+                
                 <div class="form-group">
-                    <label class="form-label">Дата доставки</label>
                     <input type="date" class="form-input" id="deliveryDate" required>
                 </div>
-
+                
                 <div class="form-group">
-                    <label class="form-label">Время доставки</label>
                     <input type="time" class="form-input" id="deliveryTime" required>
                 </div>
-
+                
                 <div class="form-group">
-                    <label class="form-label">Пожелания к заказу</label>
-                    <textarea class="form-textarea" id="orderWish" placeholder="Например: позввонить за 30 минут"></textarea>
+                    <textarea class="form-textarea" id="orderWish" placeholder="Пожелания"></textarea>
                 </div>
-
-                <button type="submit" class="btn btn-primary btn-block">Подтвердить заказ</button>
+                
+                <button type="submit" class="btn btn-primary btn-block">✅ Подтвердить</button>
             </form>
         </div>
     </div>
@@ -92,26 +85,25 @@
 
         // Инициализация приложения
         async function init() {
-            // Инициализация Telegram WebApp
             if (tg) {
                 tg.expand();
                 tg.ready();
-
+                tg.setHeaderColor('#1A1512');
+                tg.setBackgroundColor('#1A1512');
+                
                 const tgUser = tg.initDataUnsafe?.user;
                 if (tgUser) {
                     user = await registerUser(tgUser);
-                    document.getElementById('userName').textContent = user.firstName || 'Гость';
+                    document.getElementById('userName').textContent = user.firstName?.split(' ')[0] || 'Гость';
+                    
+                    await checkAdminStatus(tgUser.id);
                 }
             }
 
-            // Загружаем категории
             await loadCategories();
-
-            // Загружаем товары
             await loadCakes();
         }
 
-        // Регистрация пользователя
         async function registerUser(tgUser) {
             try {
                 const response = await fetch('/api/user', {
@@ -130,13 +122,36 @@
             }
         }
 
-        // Загрузка категорий
+        async function checkAdminStatus(telegramId) {
+            try {
+                const response = await fetch('/api/check-admin', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ userId: telegramId })
+                });
+                
+                const data = await response.json();
+                
+                if (data.isAdmin) {
+                    document.getElementById('adminBtn').style.display = 'inline-block';
+                }
+            } catch (error) {
+                console.error('Ошибка проверки прав:', error);
+            }
+        }
+
+        function goToAdmin() {
+            window.location.href = '/admin';
+        }
+
         async function loadCategories() {
             try {
                 const response = await fetch('/api/categories');
                 categories = await response.json();
-
+                
                 const nav = document.getElementById('categoriesNav');
+                nav.innerHTML = '<button class="category-btn active" data-category-id="all">Все</button>';
+                
                 categories.forEach(cat => {
                     const btn = document.createElement('button');
                     btn.className = 'category-btn';
@@ -150,13 +165,12 @@
             }
         }
 
-        // Загрузка товаров
         async function loadCakes() {
             try {
-                const url = currentCategory === 'all'
-                    ? '/api/cakes'
+                const url = currentCategory === 'all' 
+                    ? '/api/cakes' 
                     : `/api/cakes?categoryId=${currentCategory}`;
-
+                
                 const response = await fetch(url);
                 allCakes = await response.json();
                 displayCakes(allCakes);
@@ -165,60 +179,58 @@
             }
         }
 
-        // Фильтр по категории
         function filterByCategory(categoryId) {
             currentCategory = categoryId;
-
-            // Обновляем активную кнопку
+            
             document.querySelectorAll('.category-btn').forEach(btn => {
                 btn.classList.remove('active');
-                if (btn.dataset.categoryId == categoryId ||
+                if (btn.dataset.categoryId == categoryId || 
                     (categoryId === 'all' && btn.dataset.categoryId === 'all')) {
                     btn.classList.add('active');
                 }
             });
-
+            
             loadCakes();
         }
 
-        // Отображение товаров
         function displayCakes(cakes) {
             const grid = document.getElementById('cakesGrid');
             grid.innerHTML = '';
-
+            
             cakes.forEach(cake => {
                 if (!cake.available) return;
-
+                
                 const card = document.createElement('div');
                 card.className = 'cake-card';
                 card.innerHTML = `
-                    <img src="${cake.photo || 'https://via.placeholder.com/300'}" alt="${cake.name}" class="cake-image">
+                    <img src="${cake.photo || 'https://via.placeholder.com/200'}" alt="${cake.name}" class="cake-image" loading="lazy">
                     <div class="cake-name">${cake.name}</div>
                     <div class="cake-description">${cake.description}</div>
                     <div class="cake-details">
                         <span class="cake-price">${cake.price} ₽</span>
                         <span class="cake-weight">${cake.weight} кг</span>
                     </div>
-                    <button class="btn btn-primary" onclick="addToCart(${cake.id})">Добавить в корзину</button>
+                    <button class="btn btn-primary" onclick="addToCart(${cake.id})">➕</button>
                 `;
                 grid.appendChild(card);
             });
         }
 
-        // Работа с корзиной
         function addToCart(cakeId) {
             const cake = allCakes.find(c => c.id === cakeId);
             if (!cake) return;
-
+            
             const existingItem = cart.find(item => item.id === cakeId);
             if (existingItem) {
                 existingItem.quantity++;
             } else {
                 cart.push({ ...cake, quantity: 1 });
             }
-
+            
             updateCart();
-            showNotification('Товар добавлен в корзину');
+            showNotification('Добавлено');
+            
+            if (tg) tg.HapticFeedback?.impactOccurred('light');
         }
 
         function removeFromCart(cakeId) {
@@ -241,23 +253,23 @@
         function updateCart() {
             const cartItems = document.getElementById('cartItems');
             const cartTotal = document.getElementById('cartTotal');
-
+            
             if (cart.length === 0) {
-                cartItems.innerHTML = '<p style="text-align: center; color: var(--text-light);">Корзина пуста</p>';
-                cartTotal.textContent = 'Итого: 0 ₽';
+                cartItems.innerHTML = '<p style="text-align: center; color: var(--text-muted);">Пусто</p>';
+                cartTotal.textContent = '0 ₽';
                 return;
             }
-
+            
             let html = '';
             let total = 0;
-
+            
             cart.forEach(item => {
                 total += item.price * item.quantity;
                 html += `
                     <div class="cart-item">
                         <div class="cart-item-info">
                             <div class="cart-item-name">${item.name}</div>
-                            <div class="cart-item-price">${item.price} ₽ × ${item.quantity}</div>
+                            <div class="cart-item-price">${item.price}₽ × ${item.quantity}</div>
                         </div>
                         <div class="cart-item-actions">
                             <button class="cart-quantity-btn" onclick="updateQuantity(${item.id}, -1)">−</button>
@@ -268,23 +280,21 @@
                     </div>
                 `;
             });
-
+            
             cartItems.innerHTML = html;
-            cartTotal.textContent = `Итого: ${total} ₽`;
+            cartTotal.textContent = `${total} ₽`;
         }
 
-        // Оформление заказа
         function openOrderModal() {
             if (cart.length === 0) {
-                showNotification('Корзина пуста!');
+                showNotification('Корзина пуста');
                 return;
             }
-
-            // Устанавливаем минимальную дату (сегодня + 1 день)
+            
             const tomorrow = new Date();
             tomorrow.setDate(tomorrow.getDate() + 1);
             document.getElementById('deliveryDate').min = tomorrow.toISOString().split('T')[0];
-
+            
             document.getElementById('orderModal').style.display = 'flex';
         }
 
@@ -294,7 +304,7 @@
 
         async function submitOrder(event) {
             event.preventDefault();
-
+            
             const orderData = {
                 name: document.getElementById('customerName').value,
                 phone: document.getElementById('customerPhone').value,
@@ -313,46 +323,42 @@
                 userId: user?.telegramId || 0,
                 username: user?.username || ''
             };
-
+            
             try {
                 const response = await fetch('/api/orders', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify(orderData)
                 });
-
+                
                 const result = await response.json();
-
+                
                 if (result.success) {
-                    showNotification('Заказ успешно оформлен!');
+                    showNotification('Заказ оформлен!');
                     cart = [];
                     updateCart();
                     closeOrderModal();
-
-                    // Очищаем форму
                     document.getElementById('orderForm').reset();
-                } else {
-                    showNotification('Ошибка при оформлении заказа');
+                    
+                    if (tg) tg.HapticFeedback?.notification('success');
                 }
             } catch (error) {
                 console.error('Ошибка:', error);
-                showNotification('Ошибка сервера');
+                showNotification('Ошибка');
             }
         }
 
-        // Уведомления
         function showNotification(message) {
             const notification = document.createElement('div');
             notification.className = 'notification';
             notification.textContent = message;
             document.body.appendChild(notification);
-
+            
             setTimeout(() => {
                 notification.remove();
-            }, 3000);
+            }, 2000);
         }
 
-        // Запуск приложения
         init();
     </script>
 </body>
