@@ -7,7 +7,7 @@ const url = require('url');
 
 const PORT = process.env.PORT || 3000;
 const ADMIN_ID = 1066867845; // ID главного администратора в Telegram
-const BOT_TOKEN = "8739833609:AAHVM4_5VwvirZaI1fPe53roNzwsyWy--1Y"; // Новый токен
+const BOT_TOKEN = "8739833609:AAHVM4_5VwvirZaI1fPe53roNzwsyWy--1Y"; // Токен для уведомлений
 
 // MIME типы для статических файлов
 const mimeTypes = {
@@ -364,7 +364,7 @@ const server = http.createServer((req, res) => {
     }
 
     // ============================================
-    // API ДЛЯ ТОРТОВ
+    // API ДЛЯ ТОВАРОВ
     // ============================================
 
     // Получить все доступные товары (для клиентов)
@@ -515,6 +515,9 @@ const server = http.createServer((req, res) => {
                     
                     db.users.push(user);
                     writeDB(db);
+                    
+                    // Отправляем приветственное сообщение новому пользователю
+                    sendWelcomeMessage(user);
                 }
                 
                 res.writeHead(200, { 'Content-Type': 'application/json' });
@@ -563,6 +566,15 @@ const server = http.createServer((req, res) => {
         return;
     }
 
+    // Получить всех администраторов
+    if (pathname === '/api/admin/admins' && req.method === 'GET') {
+        const db = readDB();
+        const admins = (db.users || []).filter(u => u.role === 'admin');
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify(admins));
+        return;
+    }
+
     // Получить курьеров (для назначения заказа)
     if (pathname === '/api/admin/couriers' && req.method === 'GET') {
         const db = readDB();
@@ -602,6 +614,9 @@ const server = http.createServer((req, res) => {
                 db.users.push(newUser);
                 
                 if (writeDB(db)) {
+                    // Отправляем уведомление новому пользователю о назначении роли
+                    sendRoleAssignedMessage(newUser);
+                    
                     res.writeHead(201, { 'Content-Type': 'application/json' });
                     res.end(JSON.stringify(newUser));
                 } else {
@@ -632,9 +647,17 @@ const server = http.createServer((req, res) => {
                     return;
                 }
 
+                const oldRole = db.users[userIndex].role;
+                const newRole = updates.role;
+                
                 db.users[userIndex] = { ...db.users[userIndex], ...updates };
 
                 if (writeDB(db)) {
+                    // Если роль изменилась, уведомляем пользователя
+                    if (oldRole !== newRole) {
+                        sendRoleChangedMessage(db.users[userIndex], oldRole, newRole);
+                    }
+                    
                     res.writeHead(200, { 'Content-Type': 'application/json' });
                     res.end(JSON.stringify(db.users[userIndex]));
                 } else {
@@ -692,17 +715,20 @@ const server = http.createServer((req, res) => {
                 const newOrder = {
                     id: db.nextOrderId++,
                     ...orderData,
-                    status: 'active', // Новый заказ активен, еще не передан курьеру
+                    status: 'active',
                     createdAt: new Date().toISOString(),
-                    customerChatId: orderData.userId // Сохраняем ID чата клиента
+                    customerChatId: orderData.userId
                 };
 
                 if (!db.orders) db.orders = [];
                 db.orders.push(newOrder);
 
                 if (writeDB(db)) {
-                    // Отправляем уведомление админу
-                    sendOrderToAdmin(newOrder);
+                    // Отправляем уведомления ВСЕМ администраторам
+                    sendOrderToAllAdmins(newOrder, db);
+                    
+                    // Отправляем подтверждение клиенту
+                    sendOrderConfirmationToCustomer(newOrder);
 
                     res.writeHead(201, { 'Content-Type': 'application/json' });
                     res.end(JSON.stringify({ success: true, orderId: newOrder.id }));
@@ -760,6 +786,8 @@ const server = http.createServer((req, res) => {
                     return;
                 }
 
+                const oldStatus = db.orders[orderIndex].status;
+                
                 // Обновляем статус заказа
                 db.orders[orderIndex] = {
                     ...db.orders[orderIndex],
@@ -776,6 +804,9 @@ const server = http.createServer((req, res) => {
                     
                     // Отправляем уведомление клиенту
                     sendNotificationToCustomer(order);
+                    
+                    // Уведомляем администраторов о назначении курьера
+                    sendOrderAssignedToAdmins(order, db);
 
                     res.writeHead(200, { 'Content-Type': 'application/json' });
                     res.end(JSON.stringify(db.orders[orderIndex]));
@@ -807,9 +838,19 @@ const server = http.createServer((req, res) => {
                     return;
                 }
 
+                const oldStatus = db.orders[orderIndex].status;
+                const newStatus = updates.status;
+                
                 db.orders[orderIndex] = { ...db.orders[orderIndex], ...updates };
 
                 if (writeDB(db)) {
+                    const order = db.orders[orderIndex];
+                    
+                    // Если статус изменился на delivered, уведомляем всех
+                    if (oldStatus !== newStatus && newStatus === 'delivered') {
+                        sendOrderDeliveredNotifications(order, db);
+                    }
+                    
                     res.writeHead(200, { 'Content-Type': 'application/json' });
                     res.end(JSON.stringify(db.orders[orderIndex]));
                 } else {
@@ -872,10 +913,16 @@ const server = http.createServer((req, res) => {
 
 // Функция отправки сообщения в Telegram
 function sendTelegramMessage(chatId, text) {
+    if (!chatId) {
+        console.log('Нет chatId для отправки уведомления');
+        return;
+    }
+
     const postData = JSON.stringify({
         chat_id: chatId,
         text: text,
-        parse_mode: 'Markdown'
+        parse_mode: 'Markdown',
+        disable_web_page_preview: true
     });
 
     const options = {
@@ -892,45 +939,79 @@ function sendTelegramMessage(chatId, text) {
         let data = '';
         apiRes.on('data', chunk => data += chunk);
         apiRes.on('end', () => {
-            console.log(`Уведомление отправлено в чат ${chatId}`);
+            console.log(`✅ Уведомление отправлено в чат ${chatId}`);
         });
     });
 
     req.on('error', (error) => {
-        console.error('Ошибка отправки уведомления:', error);
+        console.error('❌ Ошибка отправки уведомления:', error.message);
     });
 
     req.write(postData);
     req.end();
 }
 
+// Отправка уведомления ВСЕМ администраторам
+function sendOrderToAllAdmins(order, db) {
+    const admins = db.users.filter(u => u.role === 'admin');
+    
+    if (admins.length === 0) {
+        // Если нет админов в БД, отправляем главному
+        sendOrderToAdmin(order);
+        return;
+    }
+    
+    admins.forEach(admin => {
+        if (admin.telegramId) {
+            sendOrderToAdmin(order, admin.telegramId);
+        }
+    });
+}
+
 // Функция отправки уведомления админу
-function sendOrderToAdmin(orderData) {
-    const { name, phone, address, deliveryDate, deliveryTime, wish, cart, totalPrice, userId, username } = orderData;
+function sendOrderToAdmin(orderData, specificChatId = null) {
+    const { name, phone, address, deliveryDate, deliveryTime, wish, cart, totalPrice, username } = orderData;
 
     const cakesList = cart.map(item =>
-        `🍰 ${item.name} - ${item.price} ₽ (${item.quantity} шт.)`
+        `🍰 *${item.name}* — ${item.price} ₽ (${item.quantity} шт.)`
     ).join('\n');
 
-    // Используем новый домен
+    const chatId = specificChatId || ADMIN_ID;
     const adminLink = `https://butterbakerycafe.bothost.ru/admin`;
 
     const message =
-        `📩 **НОВЫЙ ЗАКАЗ ИЗ MINI APP**\n\n` +
-        `🍰 **Товары:**\n${cakesList}\n` +
-        `💰 **Итого:** ${totalPrice} ₽\n\n` +
-        `👤 **Имя:** ${name}\n` +
-        `🆔 **Username:** ${username ? '@' + username : 'нет'}\n` +
-        `📱 **Телефон:** ${phone}\n` +
-        `📍 **Адрес:** ${address}\n` +
-        `📅 **Дата доставки:** ${deliveryDate}\n` +
-        `⏰ **Время доставки:** ${deliveryTime}\n` +
-        `📝 **Пожелания:** ${wish || 'Без пожеланий'}\n` +
-        `🆔 **User ID:** ${userId}\n` +
-        `📅 **Дата заказа:** ${new Date().toLocaleString('ru-RU')}\n\n` +
-        `👑 **Управление заказами:** ${adminLink}`;
+        `📩 *НОВЫЙ ЗАКАЗ #${orderData.id}*\n\n` +
+        `🍰 *Состав заказа:*\n${cakesList}\n` +
+        `💰 *Итого:* ${totalPrice} ₽\n\n` +
+        `👤 *Клиент:* ${name}\n` +
+        `📱 *Телефон:* \`${phone}\`\n` +
+        `📍 *Адрес:* ${address}\n` +
+        `📅 *Доставка:* ${deliveryDate} в ${deliveryTime}\n` +
+        `📝 *Пожелания:* ${wish || 'нет'}\n\n` +
+        `🆔 *Telegram:* ${username ? '@' + username : 'нет'}\n` +
+        `👑 [Открыть админ-панель](${adminLink})`;
 
-    sendTelegramMessage(ADMIN_ID, message);
+    sendTelegramMessage(chatId, message);
+}
+
+// Подтверждение заказа клиенту
+function sendOrderConfirmationToCustomer(order) {
+    if (!order.customerChatId) return;
+
+    const cakesList = order.cart.map(item =>
+        `• ${item.name} — ${item.price} ₽ (${item.quantity} шт.)`
+    ).join('\n');
+
+    const message =
+        `✅ *Заказ #${order.id} принят!*\n\n` +
+        `Спасибо за заказ в Butter Bakery Cafe! 🥐\n\n` +
+        `*Ваш заказ:*\n${cakesList}\n` +
+        `*Сумма:* ${order.totalPrice} ₽\n\n` +
+        `*Доставка:* ${order.deliveryDate} в ${order.deliveryTime}\n` +
+        `*Адрес:* ${order.address}\n\n` +
+        `📱 Мы скоро свяжемся с вами для подтверждения.`;
+
+    sendTelegramMessage(order.customerChatId, message);
 }
 
 // Уведомление курьеру
@@ -941,44 +1022,141 @@ function sendNotificationToCourier(order, courierId, db) {
     const { name, phone, address, deliveryDate, deliveryTime, wish, cart, totalPrice, id } = order;
 
     const cakesList = cart.map(item =>
-        `🍰 ${item.name} - ${item.price} ₽ (${item.quantity} шт.)`
+        `• ${item.name} — ${item.price} ₽ (${item.quantity} шт.)`
     ).join('\n');
 
     const message =
-        `🚚 **НОВЫЙ ЗАКАЗ ДЛЯ ДОСТАВКИ #${id}**\n\n` +
-        `🍰 **Состав:**\n${cakesList}\n` +
-        `💰 **Итого:** ${totalPrice} ₽\n\n` +
-        `👤 **Клиент:** ${name}\n` +
-        `📱 **Телефон:** ${phone}\n` +
-        `📍 **Адрес:** ${address}\n` +
-        `📅 **Дата доставки:** ${deliveryDate}\n` +
-        `⏰ **Время доставки:** ${deliveryTime}\n` +
-        `📝 **Пожелания:** ${wish || 'Без пожеланий'}\n\n` +
+        `🚚 *НОВЫЙ ЗАКАЗ ДЛЯ ДОСТАВКИ #${id}*\n\n` +
+        `*Состав:*\n${cakesList}\n` +
+        `*Сумма:* ${totalPrice} ₽\n\n` +
+        `👤 *Клиент:* ${name}\n` +
+        `📱 *Телефон:* \`${phone}\`\n` +
+        `📍 *Адрес:* ${address}\n` +
+        `📅 *Доставка:* ${deliveryDate} в ${deliveryTime}\n` +
+        `📝 *Пожелания:* ${wish || 'нет'}\n\n` +
         `✅ Пожалуйста, доставьте заказ вовремя.`;
 
     sendTelegramMessage(courier.telegramId, message);
 }
 
-// Уведомление клиенту
+// Уведомление клиенту о передаче заказа курьеру
 function sendNotificationToCustomer(order) {
     if (!order.customerChatId) return;
 
     const message =
-        `🛎 **Статус вашего заказа #${order.id} изменен!**\n\n` +
+        `🛎 *Статус заказа #${order.id} изменен!*\n\n` +
         `🚚 Ваш заказ передан курьеру и скоро будет доставлен!\n\n` +
-        `📦 **Детали заказа:**\n` +
+        `📦 *Детали заказа:*\n` +
         `💰 Сумма: ${order.totalPrice} ₽\n` +
         `📍 Адрес: ${order.address}\n` +
         `📅 Дата: ${order.deliveryDate} в ${order.deliveryTime}\n\n` +
-        `💬 Спасибо, что выбрали Butter Bakery Cafe!`;
+        `💬 Спасибо, что выбрали Butter Bakery Cafe! ❤️`;
 
     sendTelegramMessage(order.customerChatId, message);
+}
+
+// Уведомление администраторам о назначении курьера
+function sendOrderAssignedToAdmins(order, db) {
+    const admins = db.users.filter(u => u.role === 'admin');
+    const courier = db.users.find(u => u.id === order.courierId);
+    
+    admins.forEach(admin => {
+        if (admin.telegramId) {
+            const message =
+                `🔄 *Заказ #${order.id} передан курьеру*\n\n` +
+                `🚚 *Курьер:* ${courier?.firstName || 'Неизвестно'} ${courier?.username ? '@' + courier.username : ''}\n` +
+                `📱 *Телефон курьера:* ${courier?.phone || 'не указан'}\n` +
+                `⏱ *Время назначения:* ${new Date().toLocaleString('ru-RU')}`;
+            
+            sendTelegramMessage(admin.telegramId, message);
+        }
+    });
+}
+
+// Уведомление о доставке заказа
+function sendOrderDeliveredNotifications(order, db) {
+    // Клиенту
+    if (order.customerChatId) {
+        const message =
+            `✅ *Заказ #${order.id} доставлен!*\n\n` +
+            `Спасибо, что выбрали нас! Ждем вас снова в Butter Bakery Cafe 🥐\n\n` +
+            `⭐ Будем рады видеть вас снова!`;
+        
+        sendTelegramMessage(order.customerChatId, message);
+    }
+    
+    // Админам
+    const admins = db.users.filter(u => u.role === 'admin');
+    admins.forEach(admin => {
+        if (admin.telegramId) {
+            const message =
+                `✅ *Заказ #${order.id} доставлен*\n\n` +
+                `Клиент: ${order.name}\n` +
+                `Время доставки: ${order.deliveryDate} ${order.deliveryTime}`;
+            
+            sendTelegramMessage(admin.telegramId, message);
+        }
+    });
+}
+
+// Приветственное сообщение новому пользователю
+function sendWelcomeMessage(user) {
+    const message =
+        `🥐 *Добро пожаловать в Butter Bakery Cafe!*\n\n` +
+        `Здесь вы можете заказать свежую домашнюю выпечку с доставкой.\n\n` +
+        `✨ *Что можно делать:*\n` +
+        `• Просматривать каталог\n` +
+        `• Добавлять товары в корзину\n` +
+        `• Оформлять заказы\n` +
+        `• Отслеживать статус доставки\n\n` +
+        `Приятного аппетита! 🍰`;
+    
+    sendTelegramMessage(user.telegramId, message);
+}
+
+// Уведомление о назначении роли
+function sendRoleAssignedMessage(user) {
+    let roleText = '';
+    switch(user.role) {
+        case 'admin':
+            roleText = '👑 Вам назначена роль *администратора*.\n\nВы можете управлять заказами, товарами и пользователями.';
+            break;
+        case 'courier':
+            roleText = '🚚 Вам назначена роль *курьера*.\n\nВы будете получать уведомления о новых заказах для доставки.';
+            break;
+        default:
+            return;
+    }
+    
+    const message =
+        `🛎 *Изменение роли в Butter Bakery Cafe*\n\n` +
+        `${roleText}\n\n` +
+        `Спасибо за сотрудничество! 🌟`;
+    
+    sendTelegramMessage(user.telegramId, message);
+}
+
+// Уведомление об изменении роли
+function sendRoleChangedMessage(user, oldRole, newRole) {
+    const roleNames = {
+        admin: 'администратора',
+        courier: 'курьера',
+        customer: 'покупателя'
+    };
+    
+    const message =
+        `🔄 *Ваша роль изменена*\n\n` +
+        `Была: ${roleNames[oldRole] || oldRole}\n` +
+        `Стала: ${roleNames[newRole] || newRole}\n\n` +
+        `Обновите страницу, чтобы увидеть изменения.`;
+    
+    sendTelegramMessage(user.telegramId, message);
 }
 
 server.listen(PORT, '0.0.0.0', () => {
     console.log(`✅ Butter Bakery Cafe сервер запущен на порту ${PORT}`);
     console.log(`📱 Главная страница: http://localhost:${PORT}`);
     console.log(`👑 Админ-панель: http://localhost:${PORT}/admin`);
+    console.log(`🤖 Бот токен: ${BOT_TOKEN.substring(0, 10)}...`);
     console.log(`💾 Данные сохраняются в: ${DB_FILE}`);
-    console.log(`📸 Загрузки сохраняются в: ${UPLOAD_DIR}`);
 });
